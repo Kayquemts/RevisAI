@@ -234,13 +234,6 @@ export default function Hero() {
           >
             Criar conta grátis →
           </button>
-          <button
-            onMouseMove={handleMagnet}
-            onMouseLeave={handleMagnetLeave}
-            className="border border-gray-300 bg-white text-gray-700 px-8 py-3.5 rounded-xl font-semibold text-base hover:bg-gray-50 transition-colors"
-          >
-            Como funciona?
-          </button>
         </div>
       </div>
     </section>
