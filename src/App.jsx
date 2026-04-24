@@ -1,13 +1,15 @@
-import Navbar from './components/Navbar'
-import Hero from './components/Hero'
-import HowItWorks from './components/HowItWorks'
+import { Routes, Route, Navigate } from "react-router-dom";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-[#f5f5ec]">
-      <Navbar />
-      <Hero />
-      <HowItWorks />
-    </div>
-  )
+    <Routes>
+      <Route path="/"          element={<Home />} />
+      <Route path="/login"     element={<Login />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="*"          element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
