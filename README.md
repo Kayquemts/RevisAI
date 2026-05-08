@@ -27,7 +27,7 @@ npm run dev
 ```
 
 <p float="left">
-  <img src="public/main.jpeg">
+  <img src="front-end/public/main.jpeg">
   </br>
-  <img src="public/index.jpeg">
+  <img src="front-end/public/index.jpeg">
 </p>
