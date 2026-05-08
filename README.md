@@ -13,6 +13,7 @@ git clone https://github.com/Kayquemts/RevisAI.git
 ## Entrar na pasta
 ```
 cd RevisAI
+cd front-end
 ```
 
 ## Instalar dependências
