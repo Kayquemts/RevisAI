@@ -45,6 +45,55 @@ const INITIAL_MESSAGE = {
   text: "Olá! 👋 Sou o RevisAI, seu assistente de estudos. Informe o tema que deseja estudar e eu vou gerar flashcards personalizados para você!",
 };
 
+// ── Mock AI Response Generator ──
+const mockAIResponse = (topic) => {
+  return `---
+
+## Flashcard 1
+
+*Pergunta:* O que é ${topic}?
+
+*Resposta:* ${topic} é um conceito fundamental que envolve o entendimento teórico e prático do assunto, abrangendo definições, princípios e aplicações.
+
+---
+
+## Flashcard 2
+
+*Pergunta:* Quais são os principais conceitos de ${topic}?
+
+*Resposta:* Os principais conceitos incluem fundamentos teóricos, aplicações práticas, metodologias de análise e frameworks de referência utilizados na área.
+
+---
+
+## Flashcard 3
+
+*Pergunta:* Como aplicar ${topic} em situações práticas?
+
+*Resposta:* A aplicação prática envolve identificar o contexto, selecionar a abordagem adequada, executar com base nos princípios aprendidos e avaliar os resultados obtidos.
+
+---`;
+};
+
+// ── Markdown Parser for Flashcards ──
+const parseFlashcards = (markdown) => {
+  const flashcards = [];
+  const sections = markdown.split(/---/).filter(s => s.trim() !== "");
+
+  sections.forEach(section => {
+    const questionMatch = section.match(/\*Pergunta:\*\s*(.*)/);
+    const answerMatch = section.match(/\*Resposta:\*\s*(.*)/);
+
+    if (questionMatch && answerMatch) {
+      flashcards.push({
+        question: questionMatch[1].trim(),
+        answer: answerMatch[1].trim()
+      });
+    }
+  });
+
+  return flashcards;
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
 
@@ -52,6 +101,9 @@ export default function Dashboard() {
   const [messages, setMessages] = useState([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+  const [savedCards, setSavedCards] = useState([]); // Estado para armazenar cards salvos
+  const [showToast, setShowToast] = useState(false); // Estado para o popup
+
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -68,18 +120,42 @@ export default function Dashboard() {
     setInput("");
     setTyping(true);
 
-    // Mock bot response
+    // Mock bot response logic
     setTimeout(() => {
+      const rawMarkdown = mockAIResponse(text);
+      const cards = parseFlashcards(rawMarkdown).map(card => ({
+        ...card,
+        id: Math.random().toString(36).substr(2, 9) // Gerar ID único para o card
+      }));
+
       setTyping(false);
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now() + 1,
           from: "bot",
-          text: `Ótimo! Vou gerar flashcards sobre "${text}". Aqui estão alguns cards iniciais para você começar a revisar. Deseja ajustar o nível de dificuldade?`,
+          text: `Gerei 3 flashcards sobre "${text}":`,
+          flashcards: cards,
         },
       ]);
     }, 1800);
+  };
+
+  const toggleSaveCard = (card) => {
+    const wasSaved = savedCards.find((c) => c.id === card.id);
+
+    setSavedCards((prev) => {
+      if (wasSaved) {
+        return prev.filter((c) => c.id !== card.id);
+      } else {
+        return [...prev, card];
+      }
+    });
+
+    if (!wasSaved) {
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
   };
 
   const handleKey = (e) => {
@@ -90,7 +166,27 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-[#f5f5ec] overflow-hidden">
+    <div className="flex h-screen bg-[#f5f5ec] overflow-hidden relative">
+
+      {/* ── Pop-up Notification (Toast) ── */}
+      {showToast && (
+        <div className="fixed top-6 right-6 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-2xl flex items-center gap-3 min-w-[240px]">
+            <div>
+              <p className="text-gray-800 font-bold text-sm">Sucesso!</p>
+              <p className="text-gray-500 text-xs">Salvo em meus cards</p>
+            </div>
+            <button
+              onClick={() => setShowToast(false)}
+              className="ml-auto text-gray-300 hover:text-gray-500 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Sidebar ── */}
       <aside className="w-64 bg-[#2d6a4f] flex flex-col flex-shrink-0">
@@ -114,6 +210,11 @@ export default function Dashboard() {
             >
               {item.icon}
               {item.label}
+              {item.label === "Meus Cards" && savedCards.length > 0 && (
+                <span className="ml-auto bg-white text-[#2d6a4f] text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {savedCards.length}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -158,17 +259,69 @@ export default function Dashboard() {
           {messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex flex-col ${msg.from === "user" ? "items-end" : "items-start"}`}
             >
               <div
-                className={`max-w-[70%] px-5 py-3.5 rounded-2xl text-sm leading-relaxed shadow-sm
+                className={`max-w-[85%] px-5 py-3.5 rounded-2xl text-sm leading-relaxed shadow-sm mb-2
                   ${msg.from === "user"
                     ? "bg-[#2d6a4f] text-white rounded-br-sm"
-                    : "bg-white text-gray-700 border border-gray-100 rounded-bl-sm"
+                    : "bg-[#ecece1] text-gray-700 rounded-bl-sm"
                   }`}
               >
                 {msg.text}
               </div>
+
+              {/* Render Flashcards if they exist in the message */}
+              {msg.flashcards && (
+                <div className="w-full max-w-[85%] space-y-3">
+                  {msg.flashcards.map((card, index) => {
+                    const isSaved = savedCards.find((c) => c.id === card.id);
+                    return (
+                      <div
+                        key={card.id || index}
+                        onClick={() => toggleSaveCard(card)}
+                        className={`cursor-pointer border transition-all duration-200 rounded-2xl p-5 shadow-sm hover:shadow-md relative group
+                          ${isSaved
+                            ? "bg-[#d8e3db] border-[#2d6a4f] ring-2 ring-[#2d6a4f]/10"
+                            : "bg-[#ecece1] border-gray-100 hover:border-[#2d6a4f]/30"
+                          }`}
+                      >
+                        {isSaved && (
+                          <div className="absolute top-4 right-4 text-[#2d6a4f]">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-5 h-5">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </div>
+                        )}
+                        <h3 className={`font-bold mb-2 flex items-center gap-2 transition-colors ${isSaved ? "text-[#2d6a4f]" : "text-gray-800"}`}>
+                          📝 Card {index + 1}: {card.question}
+                        </h3>
+                        <p className={`text-sm leading-relaxed transition-colors ${isSaved ? "text-gray-700" : "text-gray-500"}`}>
+                          {card.answer}
+                        </p>
+
+
+                      </div>
+                    );
+                  })}
+
+                  <button
+                    onClick={() => {
+                      // Salvar todos que ainda não foram salvos
+                      const newCards = msg.flashcards.filter(c => !savedCards.find(sc => sc.id === c.id));
+                      setSavedCards(prev => [...prev, ...newCards]);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors shadow-sm"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                      <polyline points="17 21 17 13 7 13 7 21" />
+                      <polyline points="7 3 7 8 15 8" />
+                    </svg>
+                    Salvar Todos
+                  </button>
+                </div>
+              )}
             </div>
           ))}
 
@@ -205,8 +358,8 @@ export default function Dashboard() {
             disabled={!input.trim() || typing}
             className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all
               ${input.trim() && !typing
-                ? "bg-[#2d6a4f] hover:bg-[#1b4332] shadow-md active:scale-95"
-                : "bg-[#2d6a4f]/40 cursor-not-allowed"
+                ? "bg-[#b7d5c4] hover:bg-[#a6c8b5] shadow-md active:scale-95"
+                : "bg-[#b7d5c4]/60 cursor-not-allowed"
               }`}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} className="w-5 h-5 translate-x-0.5">
