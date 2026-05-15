@@ -102,15 +102,18 @@
   }
 
   .preserve-3d {
+    -webkit-transform-style: preserve-3d;
     transform-style: preserve-3d;
   }
 
   .backface-hidden {
+    -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+    transform: translateZ(0); /* Força renderização GPU e resolve bleeding */
   }
 
   .rotate-y-180 {
-    transform: rotateY(180deg);
+    transform: rotateY(180deg) translateZ(1px); /* Garante que a face de trás fique "por cima" quando virada */
   }
 
   .card-hover {
