@@ -5,11 +5,10 @@ import { Trash2 } from "lucide-react";
 import { useFlashcards } from "../contexts/FlashcardContext";
 import Layout from "../components/Layout";
 
-function Flashcard({ card, onEdit }) {
+function Flashcard({ card, onEdit, onDelete }) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const cardRef = useRef(null);
-  const { removeCard } = useFlashcards();
 
   const handleFlip = () => {
     if (isAnimating) return;
@@ -45,7 +44,7 @@ function Flashcard({ card, onEdit }) {
 
         {/* Delete Button */}
         <button
-          onClick={(e) => { e.stopPropagation(); removeCard(card.id); }}
+          onClick={(e) => { e.stopPropagation(); onDelete(card); }}
           className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all"
           title="Excluir card"
         >
@@ -93,8 +92,11 @@ export default function DeckDetail() {
   const { themes, updateCard } = useFlashcards();
   
   const [editingCard, setEditingCard] = useState(null);
+  const [deletingCard, setDeletingCard] = useState(null);
   const [editQuestion, setEditQuestion] = useState("");
   const [editAnswer, setEditAnswer] = useState("");
+
+  const { removeCard } = useFlashcards();
 
   const deck = themes.find(t => t.id === deckId);
 
@@ -139,9 +141,14 @@ export default function DeckDetail() {
         <h2 className="text-2xl font-bold mb-1 text-foreground">{deck.name}</h2>
         <p className="text-sm text-muted-foreground mb-6">{deck.cards.length} cards — clique para virar</p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
           {deck.cards.map((card) => (
-            <Flashcard key={card.id} card={card} onEdit={openEdit} />
+            <Flashcard 
+              key={card.id} 
+              card={card} 
+              onEdit={openEdit} 
+              onDelete={(c) => setDeletingCard(c)}
+            />
           ))}
         </div>
       </div>
@@ -187,6 +194,36 @@ export default function DeckDetail() {
                 className="flex-1 px-6 py-3 bg-primary text-primary-foreground rounded-2xl text-sm font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
               >
                 Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {deletingCard && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeletingCard(null)} />
+          <div className="bg-card rounded-3xl p-8 w-full max-w-md relative shadow-2xl animate-in zoom-in-95 duration-200 text-center">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Excluir Card?</h3>
+            <p className="text-muted-foreground mb-8 text-sm">
+              Tem certeza que deseja excluir este card? Esta ação não pode ser desfeita.
+            </p>
+            
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setDeletingCard(null)}
+                className="flex-1 px-6 py-3 bg-muted text-muted-foreground rounded-2xl text-sm font-bold hover:bg-gray-200 transition-all"
+              >
+                Não, manter
+              </button>
+              <button 
+                onClick={() => {
+                  removeCard(deletingCard.id);
+                  setDeletingCard(null);
+                }}
+                className="flex-1 px-6 py-3 bg-destructive text-destructive-foreground rounded-2xl text-sm font-bold hover:bg-destructive/90 shadow-lg shadow-destructive/20 transition-all"
+              >
+                Sim, excluir
               </button>
             </div>
           </div>
