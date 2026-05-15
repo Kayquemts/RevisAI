@@ -7,10 +7,15 @@ import App from "./App.jsx";
 import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
+import { FlashcardProvider } from "./contexts/FlashcardContext";
+
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <FlashcardProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </FlashcardProvider>
   </StrictMode>
 );
+
