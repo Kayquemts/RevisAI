@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { gsap } from "gsap";
+import { Trash2 } from "lucide-react";
 import { useFlashcards } from "../contexts/FlashcardContext";
 import Layout from "../components/Layout";
 
 function Flashcard({ card, onEdit }) {
   const [isFlipped, setIsFlipped] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const cardRef = useRef(null);
+  const { removeCard } = useFlashcards();
 
   const handleFlip = () => {
+    if (isAnimating) return;
     setIsFlipped(!isFlipped);
   };
 
@@ -18,21 +22,36 @@ function Flashcard({ card, onEdit }) {
         rotationY: isFlipped ? 180 : 0,
         duration: 0.6,
         ease: "back.out(1.2)",
+        onStart: () => setIsAnimating(true),
+        onComplete: () => setIsAnimating(false),
       });
     }
   }, [isFlipped]);
 
   return (
     <div className="relative group">
-      {/* Edit Button */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onEdit(card); }}
-        className="absolute top-4 left-4 z-10 h-8 w-8 bg-card/80 backdrop-blur-sm border border-border rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-card hover:shadow-lg text-muted-foreground hover:text-primary"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
-      </button>
+      {/* Controls Container */}
+      <div className={`absolute top-2 left-2 z-10 flex gap-1 transition-opacity duration-200 ${isAnimating ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
+        {/* Edit Button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit(card); }}
+          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all"
+          title="Editar card"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+            <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path>
+          </svg>
+        </button>
+
+        {/* Delete Button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); removeCard(card.id); }}
+          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all"
+          title="Excluir card"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
 
       <div 
         className="perspective-1000 w-full h-64 cursor-pointer"
