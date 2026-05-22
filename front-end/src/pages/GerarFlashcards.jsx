@@ -19,46 +19,11 @@ const INITIAL_MESSAGE = {
   text: "Olá! 👋 Sou o RevisAI, seu assistente de estudos. Informe o tema que deseja estudar e eu vou gerar flashcards personalizados para você!",
 };
 
-// ── Mock AI Response Generator ──
-const mockAIResponse = (topic) => {
-  return `---
-## Flashcard 1
-*Pergunta:* O que é ${topic}?
-*Resposta:* ${topic} é um conceito fundamental que envolve o entendimento teórico e prático do assunto, abrangendo definições, princípios e aplicações.
----
-## Flashcard 2
-*Pergunta:* Quais são os principais conceitos de ${topic}?
-*Resposta:* Os principais conceitos incluem fundamentos teóricos, aplicações práticas, metodologias de análise e frameworks de referência utilizados na área.
----
-## Flashcard 3
-*Pergunta:* Como aplicar ${topic} em situações práticas?
-*Resposta:* A aplicação prática envolve identificar o contexto, selecionar a abordagem adequada, executar com base nos princípios aprendidos e avaliar os resultados obtidos.
----`;
-};
-
-// ── Markdown Parser for Flashcards ──
-const parseFlashcards = (markdown) => {
-  const flashcards = [];
-  const sections = markdown.split(/---/).filter(s => s.trim() !== "");
-
-  sections.forEach(section => {
-    const questionMatch = section.match(/\*Pergunta:\*\s*(.*)/);
-    const answerMatch = section.match(/\*Resposta:\*\s*(.*)/);
-
-    if (questionMatch && answerMatch) {
-      flashcards.push({
-        id: Math.random().toString(36).substr(2, 9),
-        question: questionMatch[1].trim(),
-        answer: answerMatch[1].trim()
-      });
-    }
-  });
-
-  return flashcards;
-};
+import { useFlashcards as useFlashcardsApi } from "../hooks/useFlashcards";
 
 export default function GerarFlashcards() {
   const { themes, addGeneratedCards, removeCard } = useFlashcards();
+  const { generate, flashcards: apiFlashcards, status: apiStatus, errorMessage } = useFlashcardsApi();
   const [messages, setMessages] = useState([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
@@ -72,7 +37,7 @@ export default function GerarFlashcards() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     const text = input.trim();
     if (!text) return;
 
@@ -81,23 +46,51 @@ export default function GerarFlashcards() {
     setInput("");
     setTyping(true);
 
-    setTimeout(() => {
-      const rawMarkdown = mockAIResponse(text);
-      const cards = parseFlashcards(rawMarkdown);
-
+    try {
+      await generate(text);
+    } catch (error) {
+      console.error("Erro ao gerar flashcards:", error);
       setTyping(false);
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now() + 1,
           from: "bot",
-          text: `Gerei 3 flashcards sobre "${text}":`,
-          flashcards: cards,
-          topic: text
+          text: "Ocorreu um erro ao gerar os flashcards. Tente novamente.",
         },
       ]);
-    }, 1800);
+    }
   };
+
+  useEffect(() => {
+    if (apiStatus === "success" && apiFlashcards.length > 0) {
+      setTyping(false);
+      // We take the text of the last user message to use as the topic
+      const lastUserMessage = [...messages].reverse().find(m => m.from === "user");
+      const topic = lastUserMessage ? lastUserMessage.text : "Novo Tema";
+      
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          from: "bot",
+          text: `Gerei ${apiFlashcards.length} flashcards sobre "${topic}":`,
+          flashcards: apiFlashcards,
+          topic: topic
+        },
+      ]);
+    } else if (apiStatus === "error") {
+      setTyping(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          from: "bot",
+          text: errorMessage || "Desculpe, ocorreu um erro ao gerar os flashcards. Tente novamente.",
+        },
+      ]);
+    }
+  }, [apiStatus, apiFlashcards, errorMessage]);
 
   const handleSaveAll = (topic, cards) => {
     addGeneratedCards(topic, cards);
@@ -206,15 +199,20 @@ export default function GerarFlashcards() {
                     );
                   })}
                   
-                  {!themes.some(t => t.cards.some(sc => sc.theme === msg.topic)) && (
-                    <button 
-                      onClick={() => handleSaveAll(msg.topic, msg.flashcards)}
-                      className="mt-2 flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary/90 transition-all shadow-sm active:scale-95 animate-fade-in"
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                      Salvar Cards
-                    </button>
-                  )}
+                  {(() => {
+                    const allSaved = msg.flashcards.every(card =>
+                      themes.flatMap(t => t.cards).some(c => c.id === card.id || c.question === card.question)
+                    );
+                    return !allSaved && (
+                      <button
+                        onClick={() => handleSaveAll(msg.topic, msg.flashcards)}
+                        className="mt-2 flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary/90 transition-all shadow-sm active:scale-95 animate-fade-in"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        Salvar Cards
+                      </button>
+                    );
+                  })()}
                 </div>
               )}
             </div>

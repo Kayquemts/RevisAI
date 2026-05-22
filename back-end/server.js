@@ -19,9 +19,19 @@ function parseFlashcardsMarkdown(markdown) {
     const respostaMatch = block.match(/\*\*Resposta:\*\*\s*([\s\S]+?)(?=\n\n|$)/);
 
     if (perguntaMatch && respostaMatch) {
+      // Remove possible markdown remnants from the answer like asterisks or literal \n
+      let cleanAnswer = respostaMatch[1].trim();
+      // Replace literal \n and actual newlines with a space, then clean multiple spaces
+      cleanAnswer = cleanAnswer.replace(/\*\*[^*]+\*\*/g, '')
+                               .replace(/\\n/g, ' ')
+                               .replace(/\n/g, ' ')
+                               .replace(/\s+/g, ' ')
+                               .trim();
+
       cards.push({
-        question: perguntaMatch[1].trim(),
-        answer: respostaMatch[1].trim(),
+        id: Math.random().toString(36).substr(2, 9),
+        question: perguntaMatch[1].trim().replace(/\\n/g, ' ').replace(/\n/g, ' ').trim(),
+        answer: cleanAnswer,
       });
     }
   }
@@ -69,10 +79,18 @@ app.post('/api/generate-flashcards', async (req, res) => {
 
     console.log("Resposta do Lambda:", result);
 
-    // Lambda retorna { statusCode, body } — extraia o body real
-    const body = parseFlashcardsMarkdown(result.body);
+    // Lambda retorna { statusCode, body } onde body é uma string JSON
+    // É preciso fazer JSON.parse no body para obter o campo 'flashcards' com \n reais
+    let markdownText = result.body;
+    try {
+      const parsedBody = JSON.parse(result.body);
+      markdownText = parsedBody.flashcards ?? result.body;
+    } catch {
+      // Se não for JSON, usa o body bruto mesmo
+    }
 
-    res.status(result.statusCode || 200).json(body);
+    const cards = parseFlashcardsMarkdown(markdownText);
+    res.status(result.statusCode || 200).json({ flashcards: cards });
   } catch (error) {
     console.error("Erro ao invocar Lambda:", error);
     res.status(500).json({

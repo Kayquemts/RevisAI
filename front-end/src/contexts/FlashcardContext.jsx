@@ -1,5 +1,4 @@
 import { createContext, useContext, useState } from "react";
-import { themes as initialThemes, weeks as initialWeeks } from "../data/mockData";
 
 const FlashcardContext = createContext(null);
 
@@ -10,8 +9,13 @@ export const useFlashcards = () => {
 };
 
 export const FlashcardProvider = ({ children }) => {
-  const [themes, setThemes] = useState(initialThemes);
-  const [weeks, setWeeks] = useState(initialWeeks);
+  const [themes, setThemes] = useState([]);
+  const [weeks, setWeeks] = useState([
+    { id: 1, title: "Semana 1", days: [] },
+    { id: 2, title: "Semana 2", days: [] },
+    { id: 3, title: "Semana 3", days: [] },
+    { id: 4, title: "Semana 4", days: [] },
+  ]);
   const [cardStats, setCardStats] = useState({});
   const [weekLinks, setWeekLinks] = useState([
     { weekId: 1, flashcardIds: [] },
