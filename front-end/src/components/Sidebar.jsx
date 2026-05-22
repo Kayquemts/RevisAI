@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import robotIcon from "../assets/assistente-de-robo.svg";
+import robotIcon from "../assets/chatbot.png";
 import { User, Calendar, CreditCard, Bot, Target } from "lucide-react";
 
 const navItems = [
