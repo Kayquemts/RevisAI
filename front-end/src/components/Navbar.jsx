@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
+import robotIcon from "../assets/chatbot.png";
 
 export default function Navbar() {
   return (
     <nav className="w-full flex items-center justify-between px-8 py-4 bg-[#f5f5ec] border-b border-gray-200">
       <Link to="/" className="flex items-center gap-2 font-bold text-gray-800 text-lg">
-        🤖 REVISAI
+        <img src={robotIcon} alt="Logo" className="w-8 h-8" /> REVISAI
       </Link>
       <div className="flex items-center gap-4">
         <Link to="/login" className="text-gray-700 hover:text-gray-900 font-medium">

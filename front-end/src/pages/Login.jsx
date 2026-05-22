@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { useNavigate } from "react-router-dom";
+import robotIcon from "../assets/chatbot.png";
 
 const floatingCards = [
   { question: "Capital do Japão?", answer: "Tóquio", rotate: "-7deg", x: "-340px", y: "-60px", delay: 0 },
@@ -193,7 +194,7 @@ export default function Login() {
 
       {/* Logo */}
       <div ref={logoRef} className="relative z-20 mb-8 flex items-center gap-2 text-gray-800 font-extrabold text-xl">
-        🤖 <span>REVISAI</span>
+        <img src={robotIcon} alt="Logo" className="w-8 h-8" /> REVISAI
       </div>
 
       {/* Form card */}

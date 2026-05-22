@@ -11,7 +11,7 @@ import {
   Sparkles,
   Zap
 } from "lucide-react";
-import botIcon from "../assets/assistente-de-robo.svg";
+import botIcon from "../assets/chatbot.png";
 
 const INITIAL_MESSAGE = {
   id: 1,
