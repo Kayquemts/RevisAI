@@ -1,21 +1,16 @@
 {
-  "name": "back-end",
-  "version": "1.0.0",
-  "description": "Este documento apresenta o passo a passo para configurar e rodar o backend e o frontend do projeto **RevisAI**.",
-  "main": "aiProvider.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "name": "revisai-backend",
+  "private": true,
+  "version": "0.0.0",
   "type": "commonjs",
+  "scripts": {
+    "dev": "node server.js"
+  },
   "dependencies": {
     "@aws-sdk/client-lambda": "^3.1052.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "firebase-admin": "^13.8.0"
+    "firebase-admin": "^13.10.0"
   }
 }
