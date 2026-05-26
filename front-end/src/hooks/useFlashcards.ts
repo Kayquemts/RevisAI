@@ -2,26 +2,55 @@ import { useState, useCallback } from "react";
 import { generateFlashcards, ApiError, NetworkError } from "../services/flashcard.service";
 import type { Flashcard, RequestStatus } from "../types/flashcard.types";
 
+
 interface UseFlashcardsReturn {
-  flashcards: Flashcard[];
+  artifact: Flashcard[] | string | null;
+  artifact_type: string | null;
+  router_decision: string | null;
   status: RequestStatus;
   errorMessage: string | null;
-  generate: (content: string) => Promise<void>;
+  generate: (params: { content: string; file?: File | null; mode: string }) => Promise<void>;
   reset: () => void;
 }
 
-/**
- * Hook central da feature. Gerencia o ciclo completo:
- * chamada à API → estados de loading/erro/sucesso → dados resultantes.
- * Componentes só precisam consumir este hook, sem conhecer detalhes de rede.
- */
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = error => reject(error);
+  });
+
+function parseFlashcards(markdown: string | null | undefined): Flashcard[] {
+  if (!markdown) return [];
+
+  const blocks = markdown.split("---").filter(b => b.trim());
+
+  const cards = blocks
+    .filter(b => b.includes("Flashcard"))
+    .map((block, i) => {
+      const pergunta = block.match(/\*\*Pergunta:\*\*\s*([\s\S]+?)\n\n\*\*Resposta:/)?.[1]?.trim() ?? "";
+      const resposta = block.match(/\*\*Resposta:\*\*\s*([\s\S]+?)(?:\n\n|$)/)?.[1]?.trim() ?? "";
+      return {
+        id: `card-${Date.now()}-${i}`,
+        question: pergunta,
+        answer: resposta,
+      };
+    })
+    .filter(card => card.question && card.answer);
+
+  return cards;
+}
+
 export function useFlashcards(): UseFlashcardsReturn {
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
+  const [artifact, setArtifact] = useState<Flashcard[] | string | null>(null);
+  const [artifact_type, setArtifactType] = useState<string | null>(null);
+  const [router_decision, setRouterDecision] = useState<string | null>(null);
   const [status, setStatus] = useState<RequestStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const generate = useCallback(async (content: string) => {
-    if (!content.trim()) {
+  const generate = useCallback(async ({ content, file, mode }: { content: string; file?: File | null; mode: string }) => {
+    if (!content.trim() && !file) {
       setErrorMessage("O conteúdo não pode estar vazio.");
       setStatus("error");
       return;
@@ -29,11 +58,35 @@ export function useFlashcards(): UseFlashcardsReturn {
 
     setStatus("loading");
     setErrorMessage(null);
+    setArtifact(null);
+    setArtifactType(null);
+    setRouterDecision(null);
 
     try {
-      const data = await generateFlashcards({ content });
-      setFlashcards(data.flashcards);
+      const payload: any = {
+        content: content.trim(),
+        mode,
+      };
+
+      if (file) {
+        payload.file_base64 = await fileToBase64(file);
+        payload.file_name = file.name;
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        payload.file_type = ext || "";
+      }
+
+      const data = await generateFlashcards(payload);
+
+      if (data.artifact_type === "flashcards") {
+        setArtifact(Array.isArray(data.artifact) ? data.artifact : parseFlashcards(data.artifact as string));
+      } else {
+        setArtifact(data.artifact as string);
+      }
+
+      setArtifactType(data.artifact_type);
+      setRouterDecision(data.router_decision || null);
       setStatus("success");
+
     } catch (err) {
       const message =
         err instanceof ApiError || err instanceof NetworkError
@@ -46,10 +99,12 @@ export function useFlashcards(): UseFlashcardsReturn {
   }, []);
 
   const reset = useCallback(() => {
-    setFlashcards([]);
+    setArtifact(null);
+    setArtifactType(null);
+    setRouterDecision(null);
     setStatus("idle");
     setErrorMessage(null);
   }, []);
 
-  return { flashcards, status, errorMessage, generate, reset };
+  return { artifact, artifact_type, router_decision, status, errorMessage, generate, reset };
 }

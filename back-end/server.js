@@ -19,14 +19,12 @@ function parseFlashcardsMarkdown(markdown) {
     const respostaMatch = block.match(/\*\*Resposta:\*\*\s*([\s\S]+?)(?=\n\n|$)/);
 
     if (perguntaMatch && respostaMatch) {
-      // Remove possible markdown remnants from the answer like asterisks or literal \n
       let cleanAnswer = respostaMatch[1].trim();
-      // Replace literal \n and actual newlines with a space, then clean multiple spaces
       cleanAnswer = cleanAnswer.replace(/\*\*[^*]+\*\*/g, '')
-                               .replace(/\\n/g, ' ')
-                               .replace(/\n/g, ' ')
-                               .replace(/\s+/g, ' ')
-                               .trim();
+        .replace(/\\n/g, ' ')
+        .replace(/\n/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
       cards.push({
         id: Math.random().toString(36).substr(2, 9),
@@ -39,15 +37,11 @@ function parseFlashcardsMarkdown(markdown) {
   return cards;
 }
 
-/**
- * POST /api/generate-flashcards
- * Recebe um prompt do usuário, gera flashcards via IA e salva no Firebase
- */
 app.post('/api/generate-flashcards', async (req, res) => {
-  const { content } = req.body;
+  const { content, file_base64, file_type, file_name, mode } = req.body;
 
-  if (!content) {
-    return res.status(400).json({ error: 'O campo "content" é obrigatório.' });
+  if (!content && !file_base64) {
+    return res.status(400).json({ error: 'Envie "content" ou "file_base64".' });
   }
 
   const client = new LambdaClient({
@@ -58,13 +52,11 @@ app.post('/api/generate-flashcards', async (req, res) => {
     },
   });
 
-  // Formato que o Lambda (API Gateway proxy) espera
   const payload = JSON.stringify({
     httpMethod: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, file_base64, file_type, file_name, mode }),
     isBase64Encoded: false,
-
   });
 
   const command = new InvokeCommand({
@@ -79,18 +71,33 @@ app.post('/api/generate-flashcards', async (req, res) => {
 
     console.log("Resposta do Lambda:", result);
 
-    // Lambda retorna { statusCode, body } onde body é uma string JSON
-    // É preciso fazer JSON.parse no body para obter o campo 'flashcards' com \n reais
-    let markdownText = result.body;
+    let parsedBody;
     try {
-      const parsedBody = JSON.parse(result.body);
-      markdownText = parsedBody.flashcards ?? result.body;
+      parsedBody = JSON.parse(result.body);
     } catch {
-      // Se não for JSON, usa o body bruto mesmo
+      parsedBody = { artifact: result.body, artifact_type: 'unknown', mode: 'auto' };
     }
 
-    const cards = parseFlashcardsMarkdown(markdownText);
-    res.status(result.statusCode || 200).json({ flashcards: cards });
+    if (result.statusCode && result.statusCode !== 200) {
+      return res.status(result.statusCode).json(parsedBody);
+    }
+
+    if (parsedBody.artifact_type === 'flashcards') {
+      const cards = parseFlashcardsMarkdown(parsedBody.artifact);
+      res.status(result.statusCode || 200).json({
+        artifact: cards,
+        artifact_type: parsedBody.artifact_type,
+        mode: parsedBody.mode,
+        router_decision: parsedBody.router_decision
+      });
+    } else {
+      res.status(result.statusCode || 200).json({
+        artifact: parsedBody.artifact,
+        artifact_type: parsedBody.artifact_type,
+        mode: parsedBody.mode,
+        router_decision: parsedBody.router_decision
+      });
+    }
   } catch (error) {
     console.error("Erro ao invocar Lambda:", error);
     res.status(500).json({
@@ -102,94 +109,4 @@ app.post('/api/generate-flashcards', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
-});
-
-/**
- * PUT /api/flashcards/:id
- * Edita um flashcard existente, atualizando o conceito (question) e/ou a resposta (answer).
- */
-app.put('/api/flashcards/:id', async (req, res) => {
-  const { id } = req.params; // Pega o ID da URL
-  const { question, answer } = req.body; // Pega os novos dados enviados pelo frontend
-
-  // 1. Validação simples: verificar se há dados para atualizar
-  if (!question && !answer) {
-    return res.status(400).json({
-      error: 'Nenhum dado fornecido. Envie "question" ou "answer" para atualizar.'
-    });
-  }
-
-  try {
-    // 2. Referência ao documento do flashcard no Firestore
-    // Assumindo que você salva os flashcards numa coleção chamada 'flashcards'
-    const flashcardRef = db.collection('flashcards').doc(id);
-
-    // 3. (Opcional) Verificar se o flashcard existe antes de tentar atualizar
-    const doc = await flashcardRef.get();
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'Flashcard não encontrado.' });
-    }
-
-    // 4. Montar o objeto com as informações a serem atualizadas
-    const updateData = {};
-    if (question) updateData.question = question;
-    if (answer) updateData.answer = answer;
-
-    // Dica extra: você pode salvar a data da última alteração
-    updateData.updatedAt = new Date().toISOString();
-
-    // 5. Persistir as alterações no Firestore
-    await flashcardRef.update(updateData);
-
-    // 6. Retornar resposta de sucesso para o frontend
-    res.status(200).json({
-      message: 'Flashcard atualizado com sucesso.',
-      id,
-      ...updateData
-    });
-
-  } catch (error) {
-    console.error("Erro ao atualizar flashcard:", error);
-    res.status(500).json({
-      error: "Falha ao atualizar o flashcard no banco de dados.",
-      details: error.message,
-    });
-  }
-});
-
-
-/**
- * DELETE /api/flashcards/:id
- * Exclui um flashcard existente pelo seu ID.
- */
-app.delete('/api/flashcards/:id', async (req, res) => {
-  const { id } = req.params; // Pega o ID da URL
-
-  try {
-    // 1. Referência ao documento do flashcard no Firestore
-    const flashcardRef = db.collection('flashcards').doc(id);
-
-    // 2. (Opcional) Verificar se o flashcard existe antes de tentar deletar
-    // Se você não ligar de tentar deletar algo que já não existe, pode pular essa parte
-    const doc = await flashcardRef.get();
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'Flashcard não encontrado para exclusão.' });
-    }
-
-    // 3. Excluir o documento no Firestore
-    await flashcardRef.delete();
-
-    // 4. Retornar uma resposta de sucesso
-    res.status(200).json({
-      message: 'Flashcard excluído com sucesso.',
-      id
-    });
-
-  } catch (error) {
-    console.error("Erro ao excluir flashcard:", error);
-    res.status(500).json({
-      error: "Falha ao excluir o flashcard no banco de dados.",
-      details: error.message,
-    });
-  }
 });

@@ -1,19 +1,25 @@
-// Representa um único flashcard retornado pela API
 export interface Flashcard {
   id: string;
   question: string;
   answer: string;
 }
 
-// Payload enviado para a API
 export interface GenerateFlashcardsPayload {
   content: string;
+  file_base64?: string;
+  file_type?: string;
+  file_name?: string;
+  mode?: string;
 }
 
-// Resposta esperada da API
+// Para flashcards: server.js já parseia o Markdown e envia Flashcard[]
+// Para summary/glossary: artifact chega como string Markdown
 export interface GenerateFlashcardsResponse {
-  flashcards: Flashcard[];
+  artifact: Flashcard[] | string;
+  artifact_type: string;
+  mode: string;
+  model?: string;
+  router_decision?: string;
 }
 
-// Estados possíveis da requisição
 export type RequestStatus = "idle" | "loading" | "success" | "error";

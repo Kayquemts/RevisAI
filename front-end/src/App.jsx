@@ -5,18 +5,23 @@ import GerarFlashcards from "./pages/GerarFlashcards";
 import MyCards from "./pages/MyCards";
 import DeckDetail from "./pages/DeckDetail";
 import Weeks from "./pages/Weeks";
+import MeusResumos from "./pages/MeusResumos";
+import MeusDicionarios from "./pages/MeusDicionarios";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/dashboard" element={<GerarFlashcards />} />
+      <Route path="/gerar" element={<GerarFlashcards />} />
+      <Route path="/dashboard" element={<Navigate to="/gerar" replace />} />
       <Route path="/weeks" element={<Weeks />} />
 
-      <Route path="/my-cards" element={<MyCards />} />
-      <Route path="/my-cards/:deckId" element={<DeckDetail />} />
+      <Route path="/meus-cards" element={<MyCards />} />
+      <Route path="/meus-cards/:deckId" element={<DeckDetail />} />
+      <Route path="/resumos" element={<MeusResumos />} />
+      <Route path="/dicionarios" element={<MeusDicionarios />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
-}
+}

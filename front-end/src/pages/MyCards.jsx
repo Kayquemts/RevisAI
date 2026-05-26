@@ -17,7 +17,7 @@ export default function MyCards() {
             <div
               key={theme.id}
               className="bg-card p-5 cursor-pointer border border-l-4 border-l-primary rounded-[var(--radius)] shadow-sm card-hover text-card-foreground"
-              onClick={() => navigate(`/my-cards/${theme.id}`)}
+              onClick={() => navigate(`/meus-cards/${theme.id}`)}
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">

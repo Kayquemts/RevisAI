@@ -1,11 +1,11 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import robotIcon from "../assets/chatbot.png";
-import { User, Calendar, CreditCard, Bot, Target } from "lucide-react";
+import robotIcon from "../assets/assistente-de-robo.svg";
+import { User, Calendar, CreditCard, Bot, Target, FileText, BookOpen } from "lucide-react";
 
 const navItems = [
   {
     label: "Perfil",
-    path: "/profile",
+    path: "/perfil",
     icon: <User className="mr-2 h-5 w-5" />
   },
   {
@@ -15,17 +15,27 @@ const navItems = [
   },
   {
     label: "Meus Cards",
-    path: "/my-cards",
+    path: "/meus-cards",
     icon: <CreditCard className="mr-2 h-5 w-5" />
   },
   {
+    label: "Meus Resumos",
+    path: "/resumos",
+    icon: <FileText className="mr-2 h-5 w-5" />
+  },
+  {
+    label: "Meus Dicionários",
+    path: "/dicionarios",
+    icon: <BookOpen className="mr-2 h-5 w-5" />
+  },
+  {
     label: "Gerar",
-    path: "/dashboard",
+    path: "/gerar",
     icon: <Bot className="mr-2 h-5 w-5" />
   },
   {
     label: "Revisão Prioritária",
-    path: "/priority-review",
+    path: "/revisao-prioritaria",
     icon: <Target className="mr-2 h-5 w-5" />
   },
 ];
@@ -35,14 +45,17 @@ export default function Sidebar({ savedCardsCount = 0 }) {
   const location = useLocation();
 
   return (
-    <aside className="w-64 bg-sidebar-background flex flex-col flex-shrink-0 text-sidebar-foreground">
+    <aside
+      style={{ width: 256, flexShrink: 0, display: "flex", flexDirection: "column" }}
+      className="bg-sidebar-background text-sidebar-foreground"
+    >
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto pt-4">
         {/* Logo */}
-        <div 
+        <div
           className="flex justify-center mb-6 px-2 cursor-pointer"
           onClick={() => navigate("/")}
         >
-          <img src={robotIcon} alt="RevisAI Logo" className="w-16 h-16 rounded-full" />
+          <img src={robotIcon} alt="RevisAI Logo" className="rounded-full" style={{ width: 64, height: 64 }} />
         </div>
         <p className="text-center text-sm font-bold text-sidebar-foreground mb-6 tracking-wide">REVISAI</p>
 
@@ -51,8 +64,8 @@ export default function Sidebar({ savedCardsCount = 0 }) {
           <div className="w-full text-sm">
             <ul className="flex w-full min-w-0 flex-col gap-1">
               {navItems.map((item) => {
-                const isActive = location.pathname === item.path || (item.path === "/dashboard" && location.pathname === "/dashboard");
-                
+                const isActive = location.pathname === item.path;
+
                 return (
                   <li key={item.label} className="relative">
                     <button

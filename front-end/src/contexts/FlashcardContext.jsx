@@ -10,6 +10,8 @@ export const useFlashcards = () => {
 
 export const FlashcardProvider = ({ children }) => {
   const [themes, setThemes] = useState([]);
+  const [resumos, setResumos] = useState([]);
+  const [dicionarios, setDicionarios] = useState([]);
   const [weeks, setWeeks] = useState([
     { id: 1, title: "Semana 1", days: [] },
     { id: 2, title: "Semana 2", days: [] },
@@ -144,8 +146,24 @@ export const FlashcardProvider = ({ children }) => {
       prev.map(t => ({
         ...t,
         cards: t.cards.filter(c => c.id !== cardId),
-      })).filter(t => t.cards.length > 0) // Opcional: remove o tema se ficar vazio
+      })).filter(t => t.cards.length > 0)
     );
+  };
+
+  const addResumo = (topic, html) => {
+    setResumos(prev => [...prev, { id: Date.now().toString(), topic, html, date: new Date().toLocaleDateString('pt-BR') }]);
+  };
+
+  const removeResumo = (id) => {
+    setResumos(prev => prev.filter(r => r.id !== id));
+  };
+
+  const addDicionario = (topic, html, termsCount = 0) => {
+    setDicionarios(prev => [...prev, { id: Date.now().toString(), topic, html, date: new Date().toLocaleDateString('pt-BR'), termsCount }]);
+  };
+
+  const removeDicionario = (id) => {
+    setDicionarios(prev => prev.filter(d => d.id !== id));
   };
 
   return (
@@ -154,9 +172,10 @@ export const FlashcardProvider = ({ children }) => {
       linkCardsToWeek, unlinkCardsFromWeek, getCardsForWeek, getAllCards,
       updateWeekDayTopics, updateCard, removeCard,
       recordAnswer, cardStats, hasReviewHistory, getThemePriorities,
+      resumos, addResumo, removeResumo,
+      dicionarios, addDicionario, removeDicionario,
     }}>
       {children}
     </FlashcardContext.Provider>
   );
 };
-
