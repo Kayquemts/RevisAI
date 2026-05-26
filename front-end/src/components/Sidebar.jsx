@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import robotIcon from "../assets/assistente-de-robo.svg";
 import { User, Calendar, CreditCard, Bot, Target, FileText, BookOpen } from "lucide-react";
+import { useFlashcards } from "../contexts/FlashcardContext";
 
 const navItems = [
   {
@@ -40,9 +41,20 @@ const navItems = [
   },
 ];
 
-export default function Sidebar({ savedCardsCount = 0 }) {
+export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { themes, resumos, dicionarios } = useFlashcards();
+
+  const cardsCount = themes.reduce((acc, t) => acc + t.cards.length, 0);
+  const resumosCount = resumos.length;
+  const dicionariosCount = dicionarios.length;
+
+  const counts = {
+    "Meus Cards": cardsCount,
+    "Meus Resumos": resumosCount,
+    "Meus Dicionários": dicionariosCount,
+  };
 
   return (
     <aside
@@ -65,6 +77,7 @@ export default function Sidebar({ savedCardsCount = 0 }) {
             <ul className="flex w-full min-w-0 flex-col gap-1">
               {navItems.map((item) => {
                 const isActive = location.pathname === item.path;
+                const count = counts[item.label] ?? 0;
 
                 return (
                   <li key={item.label} className="relative">
@@ -78,9 +91,9 @@ export default function Sidebar({ savedCardsCount = 0 }) {
                     >
                       {item.icon}
                       <span>{item.label}</span>
-                      {item.label === "Meus Cards" && savedCardsCount > 0 && (
+                      {count > 0 && (
                         <span className="ml-auto bg-white text-sidebar-background text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                          {savedCardsCount}
+                          {count}
                         </span>
                       )}
                     </button>

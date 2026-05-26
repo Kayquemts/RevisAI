@@ -15,6 +15,9 @@ import {
 import botIcon from "../assets/assistente-de-robo.svg";
 import { useFlashcards as useFlashcardsApi } from "../hooks/useFlashcards";
 import { marked } from "marked";
+import { saveSession, loadLastSession, startNewSession } from "../services/session.service";
+
+const MAX_HISTORY_MESSAGES = 6;
 
 const MODES = [
   { id: "auto", label: "Automático", icon: <Sparkles className="w-4 h-4" /> },
@@ -46,6 +49,10 @@ export default function GerarFlashcards() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [typing, setTyping] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("Cards adicionados à sua coleção");
+  const [savingResumo, setSavingResumo] = useState(null);
+  const [savingDicionario, setSavingDicionario] = useState(null);
+  const [conversationHistory, setConversationHistory] = useState([]);
   const [showModeMenu, setShowModeMenu] = useState(false);
 
   const fileInputRef = useRef(null);
@@ -54,9 +61,30 @@ export default function GerarFlashcards() {
   const chatRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Refs para ler o valor mais recente dentro de useEffects sem adicioná-los
+  // como dependências (evita re-execuções em loop)
+  const historyRef = useRef(conversationHistory);
+  historyRef.current = conversationHistory;
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+
+  // Carregar última sessão ao montar
+  useEffect(() => {
+    loadLastSession().then((session) => {
+      if (session && session.messages && session.messages.length > 1) {
+        setMessages(session.messages);
+        setConversationHistory(session.history ?? []);
+      }
+    }).catch(() => {});
+  }, []);
+
   const handleModeChange = (modeId) => {
     setActiveMode(modeId);
     setShowModeMenu(false);
+    // Iniciar nova sessão ao trocar de modo
+    setMessages([makeInitialMessage(modeId)]);
+    setConversationHistory([]);
+    startNewSession();
   };
 
   useEffect(() => {
@@ -92,7 +120,12 @@ export default function GerarFlashcards() {
     setTyping(true);
 
     try {
-      await generate({ content: text, file: fileToUpload, mode: activeMode });
+      await generate({
+        content: text,
+        file: fileToUpload,
+        mode: activeMode,
+        history: historyRef.current.slice(-MAX_HISTORY_MESSAGES),
+      });
     } catch (error) {
       console.error("Erro ao gerar conteúdo:", error);
       setTyping(false);
@@ -108,8 +141,23 @@ export default function GerarFlashcards() {
     if (apiStatus !== "success") return;
     setTyping(false);
 
-    const lastUserMessage = [...messages].reverse().find(m => m.from === "user");
+    const lastUserMessage = [...messagesRef.current].reverse().find(m => m.from === "user");
     const topic = lastUserMessage?.topic ?? "Novo Tema";
+    const userText = lastUserMessage?.text ?? "";
+
+    // Helper para persistir histórico + mensagens no Firestore
+    const persistSession = (newBotMsg, assistantContent) => {
+      const updatedMessages = [...messagesRef.current, newBotMsg];
+      const updatedHistory = [
+        ...historyRef.current,
+        { role: "user", content: userText },
+        { role: "assistant", content: assistantContent },
+      ].slice(-MAX_HISTORY_MESSAGES);
+
+      setMessages(updatedMessages);
+      setConversationHistory(updatedHistory);
+      saveSession(updatedHistory, updatedMessages).catch(() => {});
+    };
 
     if (artifact_type === "unknown") {
       setMessages((prev) => [...prev, {
@@ -131,14 +179,16 @@ export default function GerarFlashcards() {
 
     if (artifact_type === "flashcards") {
       if (Array.isArray(artifact) && artifact.length > 0) {
-        setMessages((prev) => [...prev, {
+        const botMsg = {
           id: Date.now() + 1,
           from: "bot",
           text: `Gerei ${artifact.length} flashcards sobre "${topic}":`,
           flashcards: artifact,
           topic,
           routerDecision: router_decision,
-        }]);
+        };
+        const assistantContent = `Gerei ${artifact.length} flashcards sobre "${topic}".`;
+        persistSession(botMsg, assistantContent);
       } else {
         setMessages((prev) => [...prev, {
           id: Date.now() + 1,
@@ -168,7 +218,7 @@ export default function GerarFlashcards() {
       type === "resumo" ? `Aqui está o resumo sobre "${topic}":` :
         `Identifiquei os termos sobre "${topic}":`;
 
-    setMessages((prev) => [...prev, {
+    const botMsg = {
       id: Date.now() + 1,
       from: "bot",
       text: botText,
@@ -176,7 +226,10 @@ export default function GerarFlashcards() {
       html: parsedHtml,
       topic,
       routerDecision: router_decision,
-    }]);
+    };
+    // Usar o Markdown original (não o HTML) como contexto para a Lambda
+    const assistantContent = String(artifact).slice(0, 500);
+    persistSession(botMsg, assistantContent);
   }, [apiStatus, artifact, artifact_type, errorMessage]);
 
   useEffect(() => {
@@ -189,10 +242,39 @@ export default function GerarFlashcards() {
     }]);
   }, [apiStatus, errorMessage]);
 
-  const handleSaveAll = (topic, cards) => {
-    addGeneratedCards(topic, cards);
+  const showSuccess = (message) => {
+    setToastMessage(message);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
+  };
+
+  const handleSaveAll = async (topic, cards) => {
+    await addGeneratedCards(topic, cards);
+    showSuccess("Cards adicionados à sua coleção");
+  };
+
+  const handleSaveResumo = async (topic, html) => {
+    setSavingResumo(topic);
+    try {
+      await addResumo(topic, html);
+      showSuccess("Resumo salvo com sucesso");
+    } catch (err) {
+      console.error("Erro ao salvar resumo:", err);
+    } finally {
+      setSavingResumo(null);
+    }
+  };
+
+  const handleSaveDicionario = async (topic, html, termsCount) => {
+    setSavingDicionario(topic);
+    try {
+      await addDicionario(topic, html, termsCount);
+      showSuccess("Glossário salvo com sucesso");
+    } catch (err) {
+      console.error("Erro ao salvar glossário:", err);
+    } finally {
+      setSavingDicionario(null);
+    }
   };
 
   const handleKey = (e) => {
@@ -202,17 +284,15 @@ export default function GerarFlashcards() {
     }
   };
 
-  const totalSavedCards = themes.reduce((acc, t) => acc + t.cards.length, 0);
-
   return (
-    <Layout savedCardsCount={totalSavedCards}>
+    <Layout>
       {/* Toast */}
       {showToast && (
         <div className="fixed top-6 right-6 z-[100] animate-fade-in">
           <div className="bg-card border border-border rounded-2xl p-4 shadow-2xl flex items-center gap-3 min-w-[240px]">
             <div>
               <p className="text-gray-800 font-bold text-sm">Sucesso!</p>
-              <p className="text-gray-500 text-xs font-medium">Cards adicionados à sua coleção</p>
+              <p className="text-gray-500 text-xs font-medium">{toastMessage}</p>
             </div>
             <button onClick={() => setShowToast(false)} className="ml-auto text-gray-300 hover:text-gray-500 transition-colors">
               <X className="w-4 h-4" />
@@ -270,9 +350,9 @@ export default function GerarFlashcards() {
                     const savedCard = themes.flatMap(t => t.cards).find(c => c.id === card.id || c.question === card.question);
                     const isSaved = !!savedCard;
 
-                    const handleToggle = () => {
-                      if (isSaved) removeCard(savedCard.id);
-                      else handleSaveAll(msg.topic, [card]);
+                    const handleToggle = async () => {
+                      if (isSaved) await removeCard(savedCard.id);
+                      else await handleSaveAll(msg.topic, [card]);
                     };
 
                     return (
@@ -331,11 +411,12 @@ export default function GerarFlashcards() {
                   </div>
                   {!resumos.some(r => r.topic === msg.topic) && (
                     <button
-                      onClick={() => addResumo(msg.topic, msg.html)}
-                      className="mt-3 flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary/90 transition-all shadow-sm active:scale-95 animate-fade-in"
+                      onClick={() => handleSaveResumo(msg.topic, msg.html)}
+                      disabled={savingResumo === msg.topic}
+                      className="mt-3 flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary/90 transition-all shadow-sm active:scale-95 animate-fade-in disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <Save className="w-3.5 h-3.5" />
-                      Salvar Resumo
+                      {savingResumo === msg.topic ? "Salvando..." : "Salvar Resumo"}
                     </button>
                   )}
                 </div>
@@ -360,11 +441,12 @@ export default function GerarFlashcards() {
                   </div>
                   {!dicionarios.some(d => d.topic === msg.topic) && (
                     <button
-                      onClick={() => addDicionario(msg.topic, msg.html, (msg.html.match(/<tr>/g) || []).length - 1)}
-                      className="mt-2 inline-flex items-center justify-center border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 gap-1.5 text-sm font-medium transition-colors animate-fade-in"
+                      onClick={() => handleSaveDicionario(msg.topic, msg.html, (msg.html.match(/<tr>/g) || []).length - 1)}
+                      disabled={savingDicionario === msg.topic}
+                      className="mt-2 inline-flex items-center justify-center border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 gap-1.5 text-sm font-medium transition-colors animate-fade-in disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <Save className="h-3.5 w-3.5" />
-                      Salvar Glossário
+                      {savingDicionario === msg.topic ? "Salvando..." : "Salvar Glossário"}
                     </button>
                   )}
                 </div>

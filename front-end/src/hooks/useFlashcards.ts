@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { generateFlashcards, ApiError, NetworkError } from "../services/flashcard.service";
-import type { Flashcard, RequestStatus } from "../types/flashcard.types";
+import type { Flashcard, RequestStatus, ChatMessage } from "../types/flashcard.types";
 
 
 interface UseFlashcardsReturn {
@@ -9,7 +9,7 @@ interface UseFlashcardsReturn {
   router_decision: string | null;
   status: RequestStatus;
   errorMessage: string | null;
-  generate: (params: { content: string; file?: File | null; mode: string }) => Promise<void>;
+  generate: (params: { content: string; file?: File | null; mode: string; history?: ChatMessage[] }) => Promise<void>;
   reset: () => void;
 }
 
@@ -49,7 +49,7 @@ export function useFlashcards(): UseFlashcardsReturn {
   const [status, setStatus] = useState<RequestStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const generate = useCallback(async ({ content, file, mode }: { content: string; file?: File | null; mode: string }) => {
+  const generate = useCallback(async ({ content, file, mode, history }: { content: string; file?: File | null; mode: string; history?: ChatMessage[] }) => {
     if (!content.trim() && !file) {
       setErrorMessage("O conteúdo não pode estar vazio.");
       setStatus("error");
@@ -67,6 +67,10 @@ export function useFlashcards(): UseFlashcardsReturn {
         content: content.trim(),
         mode,
       };
+
+      if (history && history.length > 0) {
+        payload.history = history;
+      }
 
       if (file) {
         payload.file_base64 = await fileToBase64(file);

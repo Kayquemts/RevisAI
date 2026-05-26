@@ -1,12 +1,12 @@
 import Sidebar from "./Sidebar";
 
-export default function Layout({ children, savedCardsCount }) {
+export default function Layout({ children }) {
   return (
     <div
       className="bg-background"
       style={{ display: "flex", flexDirection: "row", height: "100vh", overflow: "hidden", position: "relative" }}
     >
-      <Sidebar savedCardsCount={savedCardsCount} />
+      <Sidebar />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <header className="h-14 flex items-center border-b px-4 bg-card" style={{ height: 56, flexShrink: 0 }}>
           <h1 className="text-lg font-bold text-foreground">RevisAI</h1>
