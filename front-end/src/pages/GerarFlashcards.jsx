@@ -315,7 +315,7 @@ export default function GerarFlashcards() {
         {/* Chat */}
         <div
           ref={chatRef}
-          className="rounded-lg border bg-card text-card-foreground shadow flex-1 overflow-auto p-4 mb-4 space-y-4 custom-scrollbar"
+          className="rounded-lg border bg-card text-card-foreground shadow flex-1 min-h-0 overflow-auto p-4 mb-4 space-y-4 custom-scrollbar"
         >
           {messages.map((msg) => (
             <div key={msg.id} className="w-full">
