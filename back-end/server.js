@@ -3,6 +3,8 @@ const cors = require('cors');
 const { db, admin } = require('./firebaseAdmin');
 require('dotenv').config();
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
+const multer = require('multer');
+const storage = multer.memoryStorage();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -10,6 +12,22 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 25 * 1024 * 1024, // Validação de tamanho máximo: 25MB em bytes
+  },
+  fileFilter: (req, file, cb) => {
+    // Validação de formato: Permitir apenas arquivos PDF
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('INVALID_TYPE'), false);
+    }
+  }
+});
 
 
 function parseFlashcardsMarkdown(markdown) {
@@ -82,6 +100,40 @@ app.post('/api/generate-flashcards', async (req, res) => {
       details: error.message,
     });
   }
+});
+
+app.post('/api/upload-document', (req, res) => {
+  upload.single('documento')(req, res, async (err) => {
+    if (err) {
+      if (err.message === 'INVALID_TYPE') {
+        return res.status(415).json({
+          error: "Tipo de arquivo inválido. Aceitamos apenas arquivos PDF.",
+        });
+      }
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({
+          error: "Arquivo muito grande. O tamanho máximo permitido é de 25MB.",
+        });
+      }
+      return res.status(500).json({
+        error: "Erro no upload do documento.",
+        details: err.message,
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        error: "Nenhum documento foi enviado na requisição.",
+      });
+    }
+
+    // Sucesso no recebimento
+    return res.status(200).json({
+      message: "Documento recebido com sucesso.",
+      fileName: req.file.originalname,
+      size: req.file.size
+    });
+  });
 });
 
 /**
