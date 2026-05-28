@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { useNavigate } from "react-router-dom";
-
+import robotIcon from "../assets/chatbot.png";
 
 const floatingCards = [
   { question: "Capital do Japão?", answer: "Tóquio", rotate: "-7deg", x: "-340px", y: "-60px", delay: 0 },
@@ -25,13 +25,11 @@ export default function Login() {
 
   const navigate = useNavigate();
 
-
   const [showPass, setShowPass] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
+  useEffect(() => {
     const ctx = gsap.context(() => {
         // ── Define estados iniciais explicitamente ──
         gsap.set(
@@ -44,7 +42,7 @@ export default function Login() {
             field2Ref.current,
             btnRef.current,
             footerRef.current,
-        ].filter(Boolean), // filtra nulls para não quebrar
+        ].filter(Boolean),
         { opacity: 0, y: 20 }
         );
         gsap.set(cardRefs.current.filter(Boolean), { opacity: 0, scale: 0.5 });
@@ -70,7 +68,7 @@ export default function Login() {
         .to([field1Ref.current, field2Ref.current], {
             y: 0, opacity: 1, duration: 0.5, stagger: 0.12,
         }, "-=0.4")
-        .to(btnRef.current,   { y: 0, opacity: 1, duration: 0.5 }, "-=0.3")  // ← botão garantido
+        .to(btnRef.current,   { y: 0, opacity: 1, duration: 0.5 }, "-=0.3")
         .to(footerRef.current,{ y: 0, opacity: 1, duration: 0.4 }, "-=0.2")
         .to(cardRefs.current.filter(Boolean), {
             scale: 1, opacity: 1, duration: 0.8, stagger: 0.15, ease: "back.out(1.7)",
@@ -122,32 +120,16 @@ export default function Login() {
     return () => ctx.revert();
     }, []);
     
-  // Magnetic buttons
-  const magnet = (e) => {
-    const b = e.currentTarget;
-    const r = b.getBoundingClientRect();
-    gsap.to(b, {
-      x: (e.clientX - r.left - r.width / 2) * 0.35,
-      y: (e.clientY - r.top - r.height / 2) * 0.35,
-      duration: 0.4,
-      ease: "power2.out",
-    });
-  };
-  const magnetLeave = (e) => {
-    gsap.to(e.currentTarget, {
-      x: 0, y: 0, duration: 0.7, ease: "elastic.out(1, 0.4)",
-    });
-  };
-
   const handleSubmit = () => {
-    if (loading) return;
-    setLoading(true);
+    // Faz a animação de clique e navega instantaneamente após concluída
     gsap.to(btnRef.current, {
-      scale: 0.96, duration: 0.15, yoyo: true, repeat: 1,
+      scale: 0.96,
+      duration: 0.15,
+      yoyo: true,
+      repeat: 1,
       onComplete: () => {
-        setLoading(false);
         navigate("/dashboard");
-      },
+      }
     });
   };
 
@@ -159,11 +141,10 @@ export default function Login() {
       ease: "power2.out",
     });
   };
+  
   const blurField = (e) => {
     gsap.to(e.currentTarget, { scale: 1, duration: 0.25, ease: "power2.out" });
   };
-
-  
 
   return (
     <div
@@ -213,7 +194,7 @@ export default function Login() {
 
       {/* Logo */}
       <div ref={logoRef} className="relative z-20 mb-8 flex items-center gap-2 text-gray-800 font-extrabold text-xl">
-        🤖 <span>REVISAI</span>
+        <img src={robotIcon} alt="Logo" className="w-8 h-8" /> REVISAI
       </div>
 
       {/* Form card */}
@@ -255,7 +236,7 @@ export default function Login() {
               Senha
             </label>
           </div>
-          <div className="relative">
+          <div className="relative flex flex-col">
             <input
               type={showPass ? "text" : "password"}
               value={password}
@@ -263,53 +244,40 @@ export default function Login() {
               onFocus={focusField}
               onBlur={blurField}
               placeholder="••••••••"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-[#fafaf8] text-gray-800 text-sm placeholder-gray-300 outline-none focus:border-[#2d6a4f] focus:ring-2 focus:ring-[#2d6a4f]/20 transition-all pr-11"
+              className="w-full px-3 py-3 rounded-xl border border-gray-200 bg-[#fafaf8] text-gray-800 text-sm placeholder-gray-300 outline-none focus:border-[#2d6a4f] focus:ring-2 focus:ring-[#2d6a4f]/20 transition-all pr-11"
             />
             <button
               tabIndex={-1}
               onClick={() => setShowPass((v) => !v)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute right-3.5 top-3 text-gray-400 hover:text-gray-600 transition-colors"
             >
               {showPass ? (
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
                   <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
                   <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
                   <line x1="1" y1="1" x2="23" y2="23" />
                 </svg>
               ) : (
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
               )}
             </button>
-            <button className="text-xs text-[#2d6a4f] hover:underline font-medium">
+            <button className="text-xs text-[#2d6a4f] hover:underline font-medium self-end mt-2">
               Esqueci a senha
             </button>
           </div>
         </div>
 
         {/* Submit */}
-        {/* Submit — wrapper absorve o magnético, botão interno não se move */}
-        <div
-          onMouseMove={magnet}
-          onMouseLeave={magnetLeave}
-          className="w-full"
+        <button
+          ref={btnRef}
+          onClick={handleSubmit}
+          className="w-full py-3.5 mt-2 rounded-xl bg-[#2d6a4f] text-white font-bold text-sm tracking-wide hover:bg-[#1b4332] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-md"
         >
-          <button
-            ref={btnRef}
-            onClick={handleSubmit}
-            className="w-full py-3.5 rounded-xl bg-[#2d6a4f] text-white font-bold text-sm tracking-wide hover:bg-[#1b4332] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-md"
-          >
-            {loading ? (
-              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-              </svg>
-            ) : (
-              <>Entrar na conta <span>→</span></>
-            )}
-          </button>
-        </div>
+          Entrar na conta <span>→</span>
+        </button>
 
         {/* Divider */}
         <div className="flex items-center gap-3 my-6">

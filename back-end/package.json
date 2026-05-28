@@ -1,0 +1,16 @@
+{
+  "name": "revisai-backend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-lambda": "^3.1052.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "firebase-admin": "^13.10.0"
+  }
+}
