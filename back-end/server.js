@@ -20,8 +20,16 @@ const upload = multer({
     fileSize: 25 * 1024 * 1024, // Validação de tamanho máximo: 25MB em bytes
   },
   fileFilter: (req, file, cb) => {
-    // Validação de formato: Permitir apenas arquivos PDF
-    if (file.mimetype === 'application/pdf') {
+    // Validação de formato: Permitir PDF, DOCX, PNG, JPG
+    const allowedMimeTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'image/png',
+      'image/jpeg',
+      'image/jpg'
+    ];
+    
+    if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new Error('INVALID_TYPE'), false);
@@ -107,7 +115,7 @@ app.post('/api/upload-document', (req, res) => {
     if (err) {
       if (err.message === 'INVALID_TYPE') {
         return res.status(415).json({
-          error: "Tipo de arquivo inválido. Aceitamos apenas arquivos PDF.",
+          error: "Tipo de arquivo inválido. Aceitamos apenas arquivos PDF, DOCX, PNG e JPG.",
         });
       }
       if (err.code === 'LIMIT_FILE_SIZE') {
