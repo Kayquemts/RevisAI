@@ -127,12 +127,64 @@ app.post('/api/upload-document', (req, res) => {
       });
     }
 
-    // Sucesso no recebimento
-    return res.status(200).json({
-      message: "Documento recebido com sucesso.",
-      fileName: req.file.originalname,
-      size: req.file.size
+    // Convertendo o arquivo para Base64
+    const fileBase64 = req.file.buffer.toString('base64');
+
+    // Configurando o cliente do Lambda
+    const client = new LambdaClient({
+      region: "us-east-2",
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      },
     });
+
+    // Formato do payload (pode precisar de ajustes dependendo do que seu Lambda espera)
+    const payload = JSON.stringify({
+      httpMethod: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        file: fileBase64,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype
+      }),
+      isBase64Encoded: false,
+    });
+
+    // Nome da função Lambda para o processamento de PDF
+    const command = new InvokeCommand({
+      FunctionName: "pdf-parser-api", // Altere aqui se o nome da sua função for diferente
+      Payload: Buffer.from(payload),
+      InvocationType: "RequestResponse",
+    });
+
+    try {
+      const response = await client.send(command);
+      const result = JSON.parse(Buffer.from(response.Payload).toString());
+
+      console.log("Resposta do Lambda de PDF:", result);
+
+      // Tratando o corpo da resposta do Lambda
+      let responseData = result.body;
+      try {
+        if (responseData) responseData = JSON.parse(result.body);
+      } catch (e) {
+        // Se não for JSON, mantém como string
+      }
+
+      return res.status(result.statusCode || 200).json({
+        message: "Documento enviado e processado com sucesso pelo Lambda.",
+        fileName: req.file.originalname,
+        size: req.file.size,
+        data: responseData || result
+      });
+    } catch (error) {
+      console.error("Erro ao invocar Lambda de PDF:", error);
+      return res.status(500).json({
+        error: "Falha na comunicação com o serviço de processamento.",
+        details: error.message,
+      });
+    }
   });
 });
 
