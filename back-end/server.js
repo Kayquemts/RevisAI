@@ -6,6 +6,8 @@ const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const multer = require('multer');
 const pdfParse = require('pdf-parse');
 
+const storage = multer.memoryStorage();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -34,6 +36,30 @@ const upload = multer({
     if (ALLOWED_MIME_TYPES.includes(file.mimetype)) cb(null, true);
     else cb(new Error('INVALID_TYPE'), false);
   },
+});
+
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 25 * 1024 * 1024, // Validação de tamanho máximo: 25MB em bytes
+  },
+  fileFilter: (req, file, cb) => {
+    // Validação de formato: Permitir PDF, DOCX, PNG, JPG
+    const allowedMimeTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'image/png',
+      'image/jpeg',
+      'image/jpg'
+    ];
+    
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('INVALID_TYPE'), false);
+    }
+  }
 });
 
 
@@ -186,6 +212,96 @@ app.get('/api/flashcards', async (req, res) => {
   }
 });
 
+app.post('/api/upload-document', (req, res) => {
+  upload.single('documento')(req, res, async (err) => {
+    if (err) {
+      if (err.message === 'INVALID_TYPE') {
+        return res.status(415).json({
+          error: "Tipo de arquivo inválido. Aceitamos apenas arquivos PDF, DOCX, PNG e JPG.",
+        });
+      }
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({
+          error: "Arquivo muito grande. O tamanho máximo permitido é de 25MB.",
+        });
+      }
+      return res.status(500).json({
+        error: "Erro no upload do documento.",
+        details: err.message,
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        error: "Nenhum documento foi enviado na requisição.",
+      });
+    }
+
+    // Convertendo o arquivo para Base64
+    const fileBase64 = req.file.buffer.toString('base64');
+
+    // Configurando o cliente do Lambda
+    const client = new LambdaClient({
+      region: "us-east-2",
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      },
+    });
+
+    // Formato do payload (pode precisar de ajustes dependendo do que seu Lambda espera)
+    const payload = JSON.stringify({
+      httpMethod: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        file: fileBase64,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype
+      }),
+      isBase64Encoded: false,
+    });
+
+    // Nome da função Lambda para o processamento de PDF
+    const command = new InvokeCommand({
+      FunctionName: "pdf-parser-api", // Altere aqui se o nome da sua função for diferente
+      Payload: Buffer.from(payload),
+      InvocationType: "RequestResponse",
+    });
+
+    try {
+      const response = await client.send(command);
+      const result = JSON.parse(Buffer.from(response.Payload).toString());
+
+      console.log("Resposta do Lambda de PDF:", result);
+
+      // Tratando o corpo da resposta do Lambda
+      let responseData = result.body;
+      try {
+        if (responseData) responseData = JSON.parse(result.body);
+      } catch (e) {
+        // Se não for JSON, mantém como string
+      }
+
+      return res.status(result.statusCode || 200).json({
+        message: "Documento enviado e processado com sucesso pelo Lambda.",
+        fileName: req.file.originalname,
+        size: req.file.size,
+        data: responseData || result
+      });
+    } catch (error) {
+      console.error("Erro ao invocar Lambda de PDF:", error);
+      return res.status(500).json({
+        error: "Falha na comunicação com o serviço de processamento.",
+        details: error.message,
+      });
+    }
+  });
+});
+
+/**
+ * SAVE /api/flashcards
+ * Salva um novo flashcard no banco de dados do firebase.
+ */
 app.post('/api/flashcards', async (req, res) => {
   const { question, answer, themeName } = req.body;
 
