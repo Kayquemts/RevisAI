@@ -3,13 +3,38 @@ const cors = require('cors');
 const { db, admin } = require('./firebaseAdmin');
 require('dotenv').config();
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
+const multer = require('multer');
+const pdfParse = require('pdf-parse');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '30mb' }));
+
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+];
+
+const MIME_TO_EXT = {
+  'application/pdf': 'pdf',
+  'image/png': 'png',
+  'image/jpeg': 'jpeg',
+  'image/webp': 'webp',
+};
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('INVALID_TYPE'), false);
+  },
+});
 
 
 function parseFlashcardsMarkdown(markdown) {
@@ -39,11 +64,52 @@ function parseFlashcardsMarkdown(markdown) {
   return cards;
 }
 
+app.post('/api/upload-document', (req, res) => {
+  upload.single('documento')(req, res, (err) => {
+    if (err) {
+      if (err.message === 'INVALID_TYPE')
+        return res.status(415).json({ error: 'Tipo de arquivo inválido. Aceitamos apenas arquivos PDF.' });
+      if (err.code === 'LIMIT_FILE_SIZE')
+        return res.status(413).json({ error: 'Arquivo muito grande. O tamanho máximo permitido é de 25MB.' });
+      return res.status(500).json({ error: 'Erro no upload do documento.', details: err.message });
+    }
+    if (!req.file)
+      return res.status(400).json({ error: 'Nenhum documento foi enviado na requisição.' });
+
+    return res.status(200).json({
+      message: 'Documento recebido com sucesso.',
+      fileName: req.file.originalname,
+      size: req.file.size,
+    });
+  });
+});
+
 app.post('/api/generate-flashcards', async (req, res) => {
   const { content, file_base64, file_type, file_name, mode, history } = req.body;
 
   if (!content && !file_base64) {
     return res.status(400).json({ error: 'Envie "content" ou "file_base64".' });
+  }
+
+  if (file_base64) {
+    const fileSize = Buffer.byteLength(file_base64, 'base64');
+    if (fileSize > 10 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Arquivo muito grande. Máximo permitido: 10 MB.' });
+    }
+  }
+
+  if (file_base64 && file_type === 'pdf') {
+    try {
+      const pdfBuffer = Buffer.from(file_base64, 'base64');
+      const pdfData = await pdfParse(pdfBuffer);
+      if (pdfData.numpages > 10) {
+        return res.status(400).json({
+          error: 'PDF muito longo. Máximo permitido: 10 páginas.'
+        });
+      }
+    } catch (err) {
+      return res.status(400).json({ error: 'Não foi possível ler o PDF enviado.' });
+    }
   }
 
   const client = new LambdaClient({
@@ -155,11 +221,11 @@ app.post('/api/flashcards', async (req, res) => {
 
 app.put('/api/flashcards/:id', async (req, res) => {
   const { id } = req.params;
-  const { question, answer } = req.body;
+  const { question, answer, themeName } = req.body;
 
-  if (!question && !answer) {
+  if (!question && !answer && !themeName) {
     return res.status(400).json({
-      error: 'Nenhum dado fornecido. Envie "question" ou "answer" para atualizar.'
+      error: 'Nenhum dado fornecido. Envie "question", "answer" ou "themeName" para atualizar.'
     });
   }
 
@@ -173,6 +239,7 @@ app.put('/api/flashcards/:id', async (req, res) => {
     const updateData = {};
     if (question) updateData.question = question;
     if (answer) updateData.answer = answer;
+    if (themeName) updateData.themeName = themeName;
     updateData.updatedAt = new Date().toISOString();
 
     await flashcardRef.update(updateData);
@@ -244,6 +311,23 @@ app.post('/api/resumos', async (req, res) => {
   }
 });
 
+app.put('/api/resumos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { topic } = req.body;
+  if (!topic) return res.status(400).json({ error: '"topic" é obrigatório.' });
+  try {
+    const ref = db.collection('resumos').doc(id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Resumo não encontrado.' });
+    const updateData = { topic, updatedAt: new Date().toISOString() };
+    await ref.update(updateData);
+    res.status(200).json({ message: 'Resumo atualizado com sucesso.', id, ...updateData });
+  } catch (error) {
+    console.error('Erro ao atualizar resumo:', error);
+    res.status(500).json({ error: 'Falha ao atualizar o resumo.', details: error.message });
+  }
+});
+
 app.delete('/api/resumos/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -286,6 +370,23 @@ app.post('/api/dicionarios', async (req, res) => {
   }
 });
 
+app.put('/api/dicionarios/:id', async (req, res) => {
+  const { id } = req.params;
+  const { topic } = req.body;
+  if (!topic) return res.status(400).json({ error: '"topic" é obrigatório.' });
+  try {
+    const ref = db.collection('dicionarios').doc(id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Dicionário não encontrado.' });
+    const updateData = { topic, updatedAt: new Date().toISOString() };
+    await ref.update(updateData);
+    res.status(200).json({ message: 'Dicionário atualizado com sucesso.', id, ...updateData });
+  } catch (error) {
+    console.error('Erro ao atualizar dicionário:', error);
+    res.status(500).json({ error: 'Falha ao atualizar o dicionário.', details: error.message });
+  }
+});
+
 app.delete('/api/dicionarios/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -300,6 +401,10 @@ app.delete('/api/dicionarios/:id', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+  });
+}
+
+module.exports = app;

@@ -94,7 +94,7 @@ export async function saveFlashcard(
 
 export async function updateFlashcard(
   id: string,
-  data: { question?: string; answer?: string }
+  data: { question?: string; answer?: string; themeName?: string }
 ): Promise<void> {
   let response: Response;
   try {
@@ -164,6 +164,26 @@ export async function saveResumo(
   return { id, ...saved } as SavedResumo;
 }
 
+export async function updateResumo(
+  id: string,
+  data: { topic: string }
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/resumos/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  } catch {
+    throw new NetworkError();
+  }
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new ApiError(response.status, errorBody?.error ?? `Erro ${response.status}`);
+  }
+}
+
 export async function deleteResumo(id: string): Promise<void> {
   let response: Response;
   try {
@@ -214,6 +234,26 @@ export async function saveDicionario(
   }
   const { id, dicionario: saved } = await response.json();
   return { id, ...saved } as SavedDicionario;
+}
+
+export async function updateDicionario(
+  id: string,
+  data: { topic: string }
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/dicionarios/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  } catch {
+    throw new NetworkError();
+  }
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new ApiError(response.status, errorBody?.error ?? `Erro ${response.status}`);
+  }
 }
 
 export async function deleteDicionario(id: string): Promise<void> {

@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from "react";
+import * as pdfjsLib from "pdfjs-dist";
 import { useFlashcards } from "../contexts/FlashcardContext";
 import Layout from "../components/Layout";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 import {
   Send,
   Save,
@@ -12,7 +18,7 @@ import {
   FileText,
   BookOpen
 } from "lucide-react";
-import botIcon from "../assets/assistente-de-robo.svg";
+import botIcon from "../assets/chatbot.png";
 import { useFlashcards as useFlashcardsApi } from "../hooks/useFlashcards";
 import { marked } from "marked";
 import { saveSession, loadLastSession, startNewSession } from "../services/session.service";
@@ -54,6 +60,7 @@ export default function GerarFlashcards() {
   const [savingDicionario, setSavingDicionario] = useState(null);
   const [conversationHistory, setConversationHistory] = useState([]);
   const [showModeMenu, setShowModeMenu] = useState(false);
+  const [pdfPageError, setPdfPageError] = useState(null);
 
   const fileInputRef = useRef(null);
   const modeMenuRef = useRef(null);
@@ -75,7 +82,7 @@ export default function GerarFlashcards() {
         setMessages(session.messages);
         setConversationHistory(session.history ?? []);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const handleModeChange = (modeId) => {
@@ -156,14 +163,17 @@ export default function GerarFlashcards() {
 
       setMessages(updatedMessages);
       setConversationHistory(updatedHistory);
-      saveSession(updatedHistory, updatedMessages).catch(() => {});
+      saveSession(updatedHistory, updatedMessages).catch(() => { });
     };
 
     if (artifact_type === "unknown") {
+      const unknownHtml = artifact ? marked.parse(String(artifact)) : null;
       setMessages((prev) => [...prev, {
         id: Date.now() + 1,
         from: "bot",
-        text: artifact ? String(artifact) : "Ocorreu um erro ao processar o conteúdo. Tente novamente.",
+        text: unknownHtml ? null : "Ocorreu um erro ao processar o conteúdo. Tente novamente.",
+        type: unknownHtml ? "invalid" : undefined,
+        html: unknownHtml ?? undefined,
       }]);
       return;
     }
@@ -173,6 +183,17 @@ export default function GerarFlashcards() {
         id: Date.now() + 1,
         from: "bot",
         text: "Ocorreu um erro ao processar o conteúdo. Tente novamente.",
+      }]);
+      return;
+    }
+
+    // INVALID response: render as plain bot message (no artifact card, no save button)
+    if (typeof artifact === "string" && artifact.startsWith("INVALID")) {
+      const invalidText = artifact.replace(/^INVALID\n+/, "").trim();
+      setMessages((prev) => [...prev, {
+        id: Date.now() + 1,
+        from: "bot",
+        text: invalidText || "O conteúdo fornecido não é válido para geração de artefatos.",
       }]);
       return;
     }
@@ -301,7 +322,7 @@ export default function GerarFlashcards() {
         </div>
       )}
 
-      <div className="max-w-3xl mx-auto animate-fade-in flex flex-col flex-1 min-h-0">
+      <div className="max-w-3xl mx-auto animate-fade-in flex flex-col flex-1 min-h-0 w-full">
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-4">
@@ -331,6 +352,20 @@ export default function GerarFlashcards() {
                   >
                     {msg.text}
                   </div>
+                </div>
+              )}
+
+              {/* Invalid / unknown artifact — rendered markdown, no save button */}
+              {msg.type === "invalid" && (
+                <div className="flex justify-start">
+                  <div
+                    className="max-w-[80%] rounded-2xl rounded-bl-md px-4 py-3 text-sm bg-muted text-foreground animate-fade-in
+                      prose prose-sm
+                      [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mb-2 [&_h2]:text-foreground
+                      [&_p]:my-1 [&_strong]:font-semibold
+                      [&_ul]:list-disc [&_ul]:pl-4 [&_li]:my-0.5"
+                    dangerouslySetInnerHTML={{ __html: msg.html }}
+                  />
                 </div>
               )}
 
@@ -476,11 +511,32 @@ export default function GerarFlashcards() {
         {/* Input */}
         <div ref={modeMenuRef} className="pb-4 relative">
 
+          {/* PDF page error */}
+          {pdfPageError && (
+            <div className="mb-2 flex items-center gap-2 animate-fade-in">
+              <span className="text-xs bg-destructive/10 text-destructive border border-destructive/20 rounded-full px-3 py-1 flex items-center gap-1.5">
+                <X className="w-3 h-3 shrink-0" />
+                {pdfPageError}
+                <button onClick={() => setPdfPageError(null)} className="ml-1 hover:opacity-70 transition-opacity">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            </div>
+          )}
+
           {/* File pill */}
           {selectedFile && (
             <div className="mb-2 flex items-center gap-2 animate-fade-in">
               <span className="text-xs bg-primary/10 text-primary border border-primary/20 rounded-full px-3 py-1 flex items-center gap-1.5">
-                <Paperclip className="w-3 h-3" />
+                {selectedFile.type.startsWith('image/') ? (
+                  <img
+                    src={URL.createObjectURL(selectedFile)}
+                    alt="preview"
+                    className="w-4 h-4 rounded object-cover shrink-0"
+                  />
+                ) : (
+                  <Paperclip className="w-3 h-3 shrink-0" />
+                )}
                 {selectedFile.name}
                 <button onClick={() => setSelectedFile(null)} className="ml-1 hover:text-destructive transition-colors">
                   <X className="w-3 h-3" />
@@ -515,10 +571,31 @@ export default function GerarFlashcards() {
             <input
               ref={fileInputRef}
               type="file"
-              onChange={(e) => {
-                if (e.target.files?.[0]) setSelectedFile(e.target.files[0]);
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                e.target.value = "";
+                if (file.size > 10 * 1024 * 1024) {
+                  setPdfPageError(`Arquivo muito grande (${(file.size / 1024 / 1024).toFixed(1)} MB). Máximo: 10 MB.`);
+                  return;
+                }
+                if (file.type === "application/pdf") {
+                  try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    if (pdf.numPages > 10) {
+                      setPdfPageError(`PDF com ${pdf.numPages} páginas. Máximo: 10 páginas.`);
+                      return;
+                    }
+                  } catch {
+                    setPdfPageError("Não foi possível ler o PDF. Tente outro arquivo.");
+                    return;
+                  }
+                }
+                setPdfPageError(null);
+                setSelectedFile(file);
               }}
-              accept=".pdf,.docx,.doc,.txt,.md,.html,.csv,.png,.jpeg,.jpg,.webp"
+              accept=".pdf,.png,.jpeg,.jpg,.webp"
               className="hidden"
             />
             <button
@@ -539,13 +616,20 @@ export default function GerarFlashcards() {
               type="button"
               title="Trocar modo"
               onClick={() => setShowModeMenu(v => !v)}
-              className={`inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-md transition-colors
+              className={`inline-flex items-center gap-1.5 h-9 shrink-0 rounded-md px-2 transition-all
                 ${showModeMenu
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  : activeMode !== "auto"
+                    ? "bg-primary/10 text-primary hover:bg-primary/20"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 }`}
             >
-              <Zap className="w-4 h-4" />
+              <Zap className="w-4 h-4 shrink-0" />
+              {activeMode !== "auto" && (
+                <span className="text-xs font-semibold whitespace-nowrap">
+                  {MODES.find(m => m.id === activeMode)?.label}
+                </span>
+              )}
             </button>
 
             {/* Text input */}

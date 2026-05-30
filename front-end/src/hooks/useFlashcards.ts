@@ -73,10 +73,16 @@ export function useFlashcards(): UseFlashcardsReturn {
       }
 
       if (file) {
+        const ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'webp'];
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+          setErrorMessage(`Tipo de arquivo não suportado: .${ext || '?'}. Use PDF, PNG, JPG ou WebP.`);
+          setStatus("error");
+          return;
+        }
         payload.file_base64 = await fileToBase64(file);
         payload.file_name = file.name;
-        const ext = file.name.split('.').pop()?.toLowerCase();
-        payload.file_type = ext || "";
+        payload.file_type = ext;
       }
 
       const data = await generateFlashcards(payload);
