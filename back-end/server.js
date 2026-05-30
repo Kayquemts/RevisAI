@@ -30,16 +30,6 @@ const MIME_TO_EXT = {
 };
 
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('INVALID_TYPE'), false);
-  },
-});
-
-
-const upload = multer({
   storage: storage,
   limits: {
     fileSize: 25 * 1024 * 1024, // Validação de tamanho máximo: 25MB em bytes
