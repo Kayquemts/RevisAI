@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import robotIcon from "../assets/assistente-de-robo.svg";
-import { User, Calendar, CreditCard, Bot, Target, FileText, BookOpen } from "lucide-react";
+import robotIcon from "../assets/chatbot.png";
+import { User, Calendar, CreditCard, Bot, FileText, BookOpen } from "lucide-react";
 import { useFlashcards } from "../contexts/FlashcardContext";
 
 const navItems = [
@@ -33,11 +33,6 @@ const navItems = [
     label: "Gerar",
     path: "/gerar",
     icon: <Bot className="mr-2 h-5 w-5" />
-  },
-  {
-    label: "Revisão Prioritária",
-    path: "/revisao-prioritaria",
-    icon: <Target className="mr-2 h-5 w-5" />
   },
 ];
 

@@ -6,9 +6,11 @@ import {
   deleteFlashcard,
   fetchResumos,
   saveResumo,
+  updateResumo as apiUpdateResumo,
   deleteResumo as apiDeleteResumo,
   fetchDicionarios,
   saveDicionario,
+  updateDicionario as apiUpdateDicionario,
   deleteDicionario as apiDeleteDicionario,
 } from "../services/flashcard.service";
 
@@ -212,12 +214,37 @@ export const FlashcardProvider = ({ children }) => {
     );
   };
 
+  const renameTheme = async (themeId, newName) => {
+    const theme = themes.find((t) => t.id === themeId);
+    if (!theme) return;
+    await Promise.all(theme.cards.map((card) => apiUpdateFlashcard(card.id, { themeName: newName })));
+    setThemes((prev) =>
+      prev.map((t) =>
+        t.id === themeId
+          ? { ...t, id: newName, name: newName, description: `Cards sobre ${newName}` }
+          : t
+      )
+    );
+  };
+
+  const deleteTheme = async (themeId) => {
+    const theme = themes.find((t) => t.id === themeId);
+    if (!theme) return;
+    await Promise.all(theme.cards.map((card) => deleteFlashcard(card.id)));
+    setThemes((prev) => prev.filter((t) => t.id !== themeId));
+  };
+
   const addResumo = async (topic, html) => {
     const saved = await saveResumo({ topic, html });
     setResumos((prev) => [
       ...prev,
       { id: saved.id, topic: saved.topic, html: saved.html, date: new Date(saved.createdAt).toLocaleDateString("pt-BR") },
     ]);
+  };
+
+  const updateResumo = async (id, topic) => {
+    await apiUpdateResumo(id, { topic });
+    setResumos((prev) => prev.map((r) => r.id === id ? { ...r, topic } : r));
   };
 
   const removeResumo = async (id) => {
@@ -233,6 +260,11 @@ export const FlashcardProvider = ({ children }) => {
     ]);
   };
 
+  const updateDicionario = async (id, topic) => {
+    await apiUpdateDicionario(id, { topic });
+    setDicionarios((prev) => prev.map((d) => d.id === id ? { ...d, topic } : d));
+  };
+
   const removeDicionario = async (id) => {
     await apiDeleteDicionario(id);
     setDicionarios((prev) => prev.filter((d) => d.id !== id));
@@ -244,10 +276,10 @@ export const FlashcardProvider = ({ children }) => {
         themes, cardsLoading, weeks, weekLinks,
         addGeneratedCards, linkCardsToWeek, unlinkCardsFromWeek,
         getCardsForWeek, getAllCards, updateWeekDayTopics,
-        updateCard, removeCard,
+        updateCard, removeCard, renameTheme, deleteTheme,
         recordAnswer, cardStats, hasReviewHistory, getThemePriorities,
-        resumos, addResumo, removeResumo,
-        dicionarios, addDicionario, removeDicionario,
+        resumos, addResumo, updateResumo, removeResumo,
+        dicionarios, addDicionario, updateDicionario, removeDicionario,
       }}
     >
       {children}
