@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { useNavigate } from "react-router-dom";
+import robotIcon from "../assets/chatbot.png"
 
 const floatingCards = [
   { question: "Capital do Japão?", answer: "Tóquio", rotate: "-7deg", x: "-340px", y: "-60px", delay: 0 },
@@ -30,95 +31,95 @@ export default function Login() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-        // ── Define estados iniciais explicitamente ──
-        gsap.set(
+      // ── Define estados iniciais explicitamente ──
+      gsap.set(
         [
-            logoRef.current,
-            formCardRef.current,
-            titleRef.current,
-            subtitleRef.current,
-            field1Ref.current,
-            field2Ref.current,
-            btnRef.current,
-            footerRef.current,
+          logoRef.current,
+          formCardRef.current,
+          titleRef.current,
+          subtitleRef.current,
+          field1Ref.current,
+          field2Ref.current,
+          btnRef.current,
+          footerRef.current,
         ].filter(Boolean),
         { opacity: 0, y: 20 }
-        );
-        gsap.set(cardRefs.current.filter(Boolean), { opacity: 0, scale: 0.5 });
+      );
+      gsap.set(cardRefs.current.filter(Boolean), { opacity: 0, scale: 0.5 });
 
-        // ── Cursor glow ──
-        const onMove = (e) => {
+      // ── Cursor glow ──
+      const onMove = (e) => {
         gsap.to(cursorGlowRef.current, {
-            x: e.clientX - 250,
-            y: e.clientY - 250,
-            duration: 1.4,
-            ease: "power3.out",
+          x: e.clientX - 250,
+          y: e.clientY - 250,
+          duration: 1.4,
+          ease: "power3.out",
         });
-        };
-        window.addEventListener("mousemove", onMove);
+      };
+      window.addEventListener("mousemove", onMove);
 
-        // ── Entrance timeline ──
-        const tl = gsap.timeline({ defaults: { ease: "power4.out" } });
+      // ── Entrance timeline ──
+      const tl = gsap.timeline({ defaults: { ease: "power4.out" } });
 
-        tl.to(logoRef.current, { y: 0, opacity: 1, duration: 0.6 })
+      tl.to(logoRef.current, { y: 0, opacity: 1, duration: 0.6 })
         .to(formCardRef.current, { y: 0, opacity: 1, scale: 1, duration: 0.9 }, "-=0.3")
-        .to(titleRef.current,   { y: 0, opacity: 1, duration: 0.6 }, "-=0.6")
-        .to(subtitleRef.current,{ y: 0, opacity: 1, duration: 0.5 }, "-=0.45")
+        .to(titleRef.current, { y: 0, opacity: 1, duration: 0.6 }, "-=0.6")
+        .to(subtitleRef.current, { y: 0, opacity: 1, duration: 0.5 }, "-=0.45")
         .to([field1Ref.current, field2Ref.current], {
-            y: 0, opacity: 1, duration: 0.5, stagger: 0.12,
+          y: 0, opacity: 1, duration: 0.5, stagger: 0.12,
         }, "-=0.4")
-        .to(btnRef.current,   { y: 0, opacity: 1, duration: 0.5 }, "-=0.3")
-        .to(footerRef.current,{ y: 0, opacity: 1, duration: 0.4 }, "-=0.2")
+        .to(btnRef.current, { y: 0, opacity: 1, duration: 0.5 }, "-=0.3")
+        .to(footerRef.current, { y: 0, opacity: 1, duration: 0.4 }, "-=0.2")
         .to(cardRefs.current.filter(Boolean), {
-            scale: 1, opacity: 1, duration: 0.8, stagger: 0.15, ease: "back.out(1.7)",
+          scale: 1, opacity: 1, duration: 0.8, stagger: 0.15, ease: "back.out(1.7)",
         }, 0.2);
 
-        // ── Float loop ──
-        cardRefs.current.filter(Boolean).forEach((card, i) => {
+      // ── Float loop ──
+      cardRefs.current.filter(Boolean).forEach((card, i) => {
         gsap.to(card, {
-            y: `+=${12 + i * 3}`,
-            rotation: `+=${1.5 + i * 0.8}`,
-            duration: 2.8 + i * 0.5,
-            repeat: -1,
-            yoyo: true,
-            ease: "sine.inOut",
-            delay: i * 0.4,
+          y: `+=${12 + i * 3}`,
+          rotation: `+=${1.5 + i * 0.8}`,
+          duration: 2.8 + i * 0.5,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+          delay: i * 0.4,
         });
-        });
+      });
 
-        // ── Mouse parallax ──
-        const onParallax = (e) => {
+      // ── Mouse parallax ──
+      const onParallax = (e) => {
         const cx = window.innerWidth / 2;
         const cy = window.innerHeight / 2;
         const dx = (e.clientX - cx) / cx;
         const dy = (e.clientY - cy) / cy;
         cardRefs.current.filter(Boolean).forEach((card, i) => {
-            gsap.to(card, {
+          gsap.to(card, {
             x: `+=${dx * (i + 1) * 10}`,
             y: `+=${dy * (i + 1) * 10}`,
             duration: 1.6,
             ease: "power2.out",
             overwrite: "auto",
-            });
+          });
         });
         gsap.to(formCardRef.current, {
-            rotateX: (dy * 3).toFixed(2),
-            rotateY: (-dx * 3).toFixed(2),
-            duration: 1.2,
-            ease: "power2.out",
+          rotateX: (dy * 3).toFixed(2),
+          rotateY: (-dx * 3).toFixed(2),
+          duration: 1.2,
+          ease: "power2.out",
         });
-        };
-        window.addEventListener("mousemove", onParallax);
+      };
+      window.addEventListener("mousemove", onParallax);
 
-        return () => {
+      return () => {
         window.removeEventListener("mousemove", onMove);
         window.removeEventListener("mousemove", onParallax);
-        };
+      };
     }, pageRef);
 
     return () => ctx.revert();
-    }, []);
-    
+  }, []);
+
   const handleSubmit = () => {
     // Faz a animação de clique e navega instantaneamente após concluída
     gsap.to(btnRef.current, {
@@ -140,7 +141,7 @@ export default function Login() {
       ease: "power2.out",
     });
   };
-  
+
   const blurField = (e) => {
     gsap.to(e.currentTarget, { scale: 1, duration: 0.25, ease: "power2.out" });
   };
@@ -193,7 +194,7 @@ export default function Login() {
 
       {/* Logo */}
       <div ref={logoRef} className="relative z-20 mb-8 flex items-center gap-2 text-gray-800 font-extrabold text-xl">
-        🤖 <span>REVISAI</span>
+        <img src={robotIcon} alt="Logo" className="w-8 h-8" /> REVISAI
       </div>
 
       {/* Form card */}

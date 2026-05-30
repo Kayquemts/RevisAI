@@ -4,6 +4,8 @@ const { db, admin } = require('./firebaseAdmin');
 require('dotenv').config();
 const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const multer = require('multer');
+const pdfParse = require('pdf-parse');
+
 const storage = multer.memoryStorage();
 
 const app = express();
@@ -11,7 +13,30 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '30mb' }));
+
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+];
+
+const MIME_TO_EXT = {
+  'application/pdf': 'pdf',
+  'image/png': 'png',
+  'image/jpeg': 'jpeg',
+  'image/webp': 'webp',
+};
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('INVALID_TYPE'), false);
+  },
+});
 
 
 const upload = multer({
@@ -47,9 +72,17 @@ function parseFlashcardsMarkdown(markdown) {
     const respostaMatch = block.match(/\*\*Resposta:\*\*\s*([\s\S]+?)(?=\n\n|$)/);
 
     if (perguntaMatch && respostaMatch) {
+      let cleanAnswer = respostaMatch[1].trim();
+      cleanAnswer = cleanAnswer.replace(/\*\*[^*]+\*\*/g, '')
+        .replace(/\\n/g, ' ')
+        .replace(/\n/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
       cards.push({
-        question: perguntaMatch[1].trim(),
-        answer: respostaMatch[1].trim(),
+        id: Math.random().toString(36).substr(2, 9),
+        question: perguntaMatch[1].trim().replace(/\\n/g, ' ').replace(/\n/g, ' ').trim(),
+        answer: cleanAnswer,
       });
     }
   }
@@ -57,15 +90,52 @@ function parseFlashcardsMarkdown(markdown) {
   return cards;
 }
 
-/**
- * POST /api/generate-flashcards
- * Recebe um prompt do usuário, gera flashcards via IA e salva no Firebase
- */
-app.post('/api/generate-flashcards', async (req, res) => {
-  const { content } = req.body;
+app.post('/api/upload-document', (req, res) => {
+  upload.single('documento')(req, res, (err) => {
+    if (err) {
+      if (err.message === 'INVALID_TYPE')
+        return res.status(415).json({ error: 'Tipo de arquivo inválido. Aceitamos apenas arquivos PDF.' });
+      if (err.code === 'LIMIT_FILE_SIZE')
+        return res.status(413).json({ error: 'Arquivo muito grande. O tamanho máximo permitido é de 25MB.' });
+      return res.status(500).json({ error: 'Erro no upload do documento.', details: err.message });
+    }
+    if (!req.file)
+      return res.status(400).json({ error: 'Nenhum documento foi enviado na requisição.' });
 
-  if (!content) {
-    return res.status(400).json({ error: 'O campo "content" é obrigatório.' });
+    return res.status(200).json({
+      message: 'Documento recebido com sucesso.',
+      fileName: req.file.originalname,
+      size: req.file.size,
+    });
+  });
+});
+
+app.post('/api/generate-flashcards', async (req, res) => {
+  const { content, file_base64, file_type, file_name, mode, history } = req.body;
+
+  if (!content && !file_base64) {
+    return res.status(400).json({ error: 'Envie "content" ou "file_base64".' });
+  }
+
+  if (file_base64) {
+    const fileSize = Buffer.byteLength(file_base64, 'base64');
+    if (fileSize > 10 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Arquivo muito grande. Máximo permitido: 10 MB.' });
+    }
+  }
+
+  if (file_base64 && file_type === 'pdf') {
+    try {
+      const pdfBuffer = Buffer.from(file_base64, 'base64');
+      const pdfData = await pdfParse(pdfBuffer);
+      if (pdfData.numpages > 10) {
+        return res.status(400).json({
+          error: 'PDF muito longo. Máximo permitido: 10 páginas.'
+        });
+      }
+    } catch (err) {
+      return res.status(400).json({ error: 'Não foi possível ler o PDF enviado.' });
+    }
   }
 
   const client = new LambdaClient({
@@ -76,13 +146,11 @@ app.post('/api/generate-flashcards', async (req, res) => {
     },
   });
 
-  // Formato que o Lambda (API Gateway proxy) espera
   const payload = JSON.stringify({
     httpMethod: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, file_base64, file_type, file_name, mode, history }),
     isBase64Encoded: false,
-
   });
 
   const command = new InvokeCommand({
@@ -97,16 +165,50 @@ app.post('/api/generate-flashcards', async (req, res) => {
 
     console.log("Resposta do Lambda:", result);
 
-    // Lambda retorna { statusCode, body } — extraia o body real
-    const body = parseFlashcardsMarkdown(result.body);
+    let parsedBody;
+    try {
+      parsedBody = JSON.parse(result.body);
+    } catch {
+      parsedBody = { artifact: result.body, artifact_type: 'unknown', mode: 'auto' };
+    }
 
-    res.status(result.statusCode || 200).json(body);
+    if (result.statusCode && result.statusCode !== 200) {
+      return res.status(result.statusCode).json(parsedBody);
+    }
+
+    if (parsedBody.artifact_type === 'flashcards') {
+      const cards = parseFlashcardsMarkdown(parsedBody.artifact);
+      res.status(result.statusCode || 200).json({
+        artifact: cards,
+        artifact_type: parsedBody.artifact_type,
+        mode: parsedBody.mode,
+        router_decision: parsedBody.router_decision
+      });
+    } else {
+      res.status(result.statusCode || 200).json({
+        artifact: parsedBody.artifact,
+        artifact_type: parsedBody.artifact_type,
+        mode: parsedBody.mode,
+        router_decision: parsedBody.router_decision
+      });
+    }
   } catch (error) {
     console.error("Erro ao invocar Lambda:", error);
     res.status(500).json({
       error: "Falha na comunicação com o serviço de geração.",
       details: error.message,
     });
+  }
+});
+
+app.get('/api/flashcards', async (req, res) => {
+  try {
+    const snapshot = await db.collection('flashcards').orderBy('createdAt', 'asc').get();
+    const cards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(cards);
+  } catch (error) {
+    console.error('Erro ao buscar flashcards:', error);
+    res.status(500).json({ error: 'Falha ao buscar flashcards.', details: error.message });
   }
 });
 
@@ -201,7 +303,7 @@ app.post('/api/upload-document', (req, res) => {
  * Salva um novo flashcard no banco de dados do firebase.
  */
 app.post('/api/flashcards', async (req, res) => {
-  const { question, answer } = req.body;
+  const { question, answer, themeName } = req.body;
 
   if (!question || !answer) {
     return res.status(400).json({
@@ -213,6 +315,7 @@ app.post('/api/flashcards', async (req, res) => {
     const newFlashcard = {
       question,
       answer,
+      themeName: themeName || 'Geral',
       createdAt: new Date().toISOString()
     };
 
@@ -232,51 +335,36 @@ app.post('/api/flashcards', async (req, res) => {
   }
 });
 
-
-/**
- * PUT /api/flashcards/:id
- * Edita um flashcard existente, atualizando o conceito (question) e/ou a resposta (answer).
- */
 app.put('/api/flashcards/:id', async (req, res) => {
-  const { id } = req.params; // Pega o ID da URL
-  const { question, answer } = req.body; // Pega os novos dados enviados pelo frontend
+  const { id } = req.params;
+  const { question, answer, themeName } = req.body;
 
-  // 1. Validação simples: verificar se há dados para atualizar
-  if (!question && !answer) {
+  if (!question && !answer && !themeName) {
     return res.status(400).json({
-      error: 'Nenhum dado fornecido. Envie "question" ou "answer" para atualizar.'
+      error: 'Nenhum dado fornecido. Envie "question", "answer" ou "themeName" para atualizar.'
     });
   }
 
   try {
-    // 2. Referência ao documento do flashcard no Firestore
-    // Assumindo que você salva os flashcards numa coleção chamada 'flashcards'
     const flashcardRef = db.collection('flashcards').doc(id);
-
-    // 3. (Opcional) Verificar se o flashcard existe antes de tentar atualizar
     const doc = await flashcardRef.get();
     if (!doc.exists) {
       return res.status(404).json({ error: 'Flashcard não encontrado.' });
     }
 
-    // 4. Montar o objeto com as informações a serem atualizadas
     const updateData = {};
     if (question) updateData.question = question;
     if (answer) updateData.answer = answer;
-
-    // Dica extra: você pode salvar a data da última alteração
+    if (themeName) updateData.themeName = themeName;
     updateData.updatedAt = new Date().toISOString();
 
-    // 5. Persistir as alterações no Firestore
     await flashcardRef.update(updateData);
 
-    // 6. Retornar resposta de sucesso para o frontend
     res.status(200).json({
       message: 'Flashcard atualizado com sucesso.',
       id,
       ...updateData
     });
-
   } catch (error) {
     console.error("Erro ao atualizar flashcard:", error);
     res.status(500).json({
@@ -286,34 +374,22 @@ app.put('/api/flashcards/:id', async (req, res) => {
   }
 });
 
-
-/**
- * DELETE /api/flashcards/:id
- * Exclui um flashcard existente pelo seu ID.
- */
 app.delete('/api/flashcards/:id', async (req, res) => {
-  const { id } = req.params; // Pega o ID da URL
+  const { id } = req.params;
 
   try {
-    // 1. Referência ao documento do flashcard no Firestore
     const flashcardRef = db.collection('flashcards').doc(id);
-
-    // 2. (Opcional) Verificar se o flashcard existe antes de tentar deletar
-    // Se você não ligar de tentar deletar algo que já não existe, pode pular essa parte
     const doc = await flashcardRef.get();
     if (!doc.exists) {
       return res.status(404).json({ error: 'Flashcard não encontrado para exclusão.' });
     }
 
-    // 3. Excluir o documento no Firestore
     await flashcardRef.delete();
 
-    // 4. Retornar uma resposta de sucesso
     res.status(200).json({
       message: 'Flashcard excluído com sucesso.',
       id
     });
-
   } catch (error) {
     console.error("Erro ao excluir flashcard:", error);
     res.status(500).json({
@@ -323,6 +399,128 @@ app.delete('/api/flashcards/:id', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+// ── RESUMOS ────────────────────────────────────────────────────────────────
+
+app.get('/api/resumos', async (req, res) => {
+  try {
+    const snapshot = await db.collection('resumos').orderBy('createdAt', 'asc').get();
+    const resumos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(resumos);
+  } catch (error) {
+    console.error('Erro ao buscar resumos:', error);
+    res.status(500).json({ error: 'Falha ao buscar resumos.', details: error.message });
+  }
 });
+
+app.post('/api/resumos', async (req, res) => {
+  const { topic, html } = req.body;
+  if (!topic || !html) {
+    return res.status(400).json({ error: 'Os campos "topic" e "html" são obrigatórios.' });
+  }
+  try {
+    const newResumo = { topic, html, createdAt: new Date().toISOString() };
+    const docRef = await db.collection('resumos').add(newResumo);
+    return res.status(201).json({ message: 'Resumo salvo com sucesso.', id: docRef.id, resumo: newResumo });
+  } catch (error) {
+    console.error('Erro ao salvar resumo:', error);
+    return res.status(500).json({ error: 'Falha ao salvar o resumo.', details: error.message });
+  }
+});
+
+app.put('/api/resumos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { topic } = req.body;
+  if (!topic) return res.status(400).json({ error: '"topic" é obrigatório.' });
+  try {
+    const ref = db.collection('resumos').doc(id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Resumo não encontrado.' });
+    const updateData = { topic, updatedAt: new Date().toISOString() };
+    await ref.update(updateData);
+    res.status(200).json({ message: 'Resumo atualizado com sucesso.', id, ...updateData });
+  } catch (error) {
+    console.error('Erro ao atualizar resumo:', error);
+    res.status(500).json({ error: 'Falha ao atualizar o resumo.', details: error.message });
+  }
+});
+
+app.delete('/api/resumos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const ref = db.collection('resumos').doc(id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Resumo não encontrado.' });
+    await ref.delete();
+    res.status(200).json({ message: 'Resumo excluído com sucesso.', id });
+  } catch (error) {
+    console.error('Erro ao excluir resumo:', error);
+    res.status(500).json({ error: 'Falha ao excluir o resumo.', details: error.message });
+  }
+});
+
+// ── DICIONÁRIOS ─────────────────────────────────────────────────────────────
+
+app.get('/api/dicionarios', async (req, res) => {
+  try {
+    const snapshot = await db.collection('dicionarios').orderBy('createdAt', 'asc').get();
+    const dicionarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(dicionarios);
+  } catch (error) {
+    console.error('Erro ao buscar dicionários:', error);
+    res.status(500).json({ error: 'Falha ao buscar dicionários.', details: error.message });
+  }
+});
+
+app.post('/api/dicionarios', async (req, res) => {
+  const { topic, html, termsCount } = req.body;
+  if (!topic || !html) {
+    return res.status(400).json({ error: 'Os campos "topic" e "html" são obrigatórios.' });
+  }
+  try {
+    const newDicionario = { topic, html, termsCount: termsCount || 0, createdAt: new Date().toISOString() };
+    const docRef = await db.collection('dicionarios').add(newDicionario);
+    return res.status(201).json({ message: 'Dicionário salvo com sucesso.', id: docRef.id, dicionario: newDicionario });
+  } catch (error) {
+    console.error('Erro ao salvar dicionário:', error);
+    return res.status(500).json({ error: 'Falha ao salvar o dicionário.', details: error.message });
+  }
+});
+
+app.put('/api/dicionarios/:id', async (req, res) => {
+  const { id } = req.params;
+  const { topic } = req.body;
+  if (!topic) return res.status(400).json({ error: '"topic" é obrigatório.' });
+  try {
+    const ref = db.collection('dicionarios').doc(id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Dicionário não encontrado.' });
+    const updateData = { topic, updatedAt: new Date().toISOString() };
+    await ref.update(updateData);
+    res.status(200).json({ message: 'Dicionário atualizado com sucesso.', id, ...updateData });
+  } catch (error) {
+    console.error('Erro ao atualizar dicionário:', error);
+    res.status(500).json({ error: 'Falha ao atualizar o dicionário.', details: error.message });
+  }
+});
+
+app.delete('/api/dicionarios/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const ref = db.collection('dicionarios').doc(id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Dicionário não encontrado.' });
+    await ref.delete();
+    res.status(200).json({ message: 'Dicionário excluído com sucesso.', id });
+  } catch (error) {
+    console.error('Erro ao excluir dicionário:', error);
+    res.status(500).json({ error: 'Falha ao excluir o dicionário.', details: error.message });
+  }
+});
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+  });
+}
+
+module.exports = app;

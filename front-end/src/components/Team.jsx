@@ -1,24 +1,34 @@
 import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import LyandersonFoto from "../assets/lyanderson.jpeg";
+import KayqueFoto from "../assets/kayyque.png";
+import LavorFoto from "../assets/lavor.jpeg";
+import Ismaael from "../assets/ismael.jpeg";
+
+import Gemini from "../assets/gemini.png";
+import Claude from "../assets/claude.png";
+import Lovable from "../assets/lovable.jpeg";
+
+
 
 gsap.registerPlugin(ScrollTrigger);
 
 const humans = [
-  { name: "Lyanderson", role: "QA", initials: "LY", color: "#3a8c64", github: "https://github.com", linkedin: "https://linkedin.com" },
-  { name: "Kayque", role: "Front-end", initials: "KY", color: "#2d6a4f", github: "https://github.com", linkedin: "https://linkedin.com" },
-  { name: "Eduardo", role: "Back-end", initials: "ED", color: "#1b4332", github: "https://github.com", linkedin: "https://linkedin.com" },
-  { name: "Pedro", role: "Engenheiro de IA", initials: "PD", color: "#40916c", github: "https://github.com", linkedin: "https://linkedin.com" },
-  { name: "Ismael", role: "Back-end", initials: "IS", color: "#2d6a4f", github: "https://github.com", linkedin: "https://linkedin.com" },
-  { name: "Ícaro", role: "Gestor de Projeto", initials: "IC", color: "#1b4332", github: "https://github.com", linkedin: "https://linkedin.com" },
-  { name: "Samuel", role: "Gestor de Projeto", initials: "SM", color: "#52b788", github: "https://github.com", linkedin: "https://linkedin.com" },
-  { name: "Caio Vinícius", role: "Gestor de Projeto", initials: "CV", color: "#3a8c64", github: "https://github.com", linkedin: "https://linkedin.com" },
+  { name: "Lyanderson", role: "QA", initials: "LY", color: "#3a8c64", github: "https://github.com", linkedin: "https://linkedin.com", foto: LyandersonFoto },
+  { name: "Kayque", role: "Front-end", initials: "KY", color: "#2d6a4f", github: "https://github.com", linkedin: "https://linkedin.com", foto: KayqueFoto },
+  { name: "Ismael", role: "Back-end", initials: "IS", color: "#2d6a4f", github: "https://github.com", linkedin: "https://linkedin.com", foto: Ismaael },
+  { name: "Pedro", role: "Engenheiro de IA", initials: "PD", color: "#40916c", github: "https://github.com", linkedin: "https://linkedin.com", foto: LavorFoto },
+  { name: "Eduardo", role: "Back-end", initials: "ED", color: "#1b4332", github: "https://github.com", linkedin: "https://linkedin.com", foto: null },
+  { name: "Ícaro", role: "Gestor de Projeto", initials: "IC", color: "#1b4332", github: "https://github.com", linkedin: "https://linkedin.com", foto: null },
+  { name: "Samuel", role: "Gestor de Projeto", initials: "SM", color: "#52b788", github: "https://github.com", linkedin: "https://linkedin.com", foto: null },
+  { name: "Caio Vinícius", role: "Gestor de Projeto", initials: "CV", color: "#3a8c64", github: "https://github.com", linkedin: "https://linkedin.com", foto: null },
 ];
 
 const ais = [
-  { name: "Claude", role: "Consultor Sênior de IA", emoji: "🤖", badge: "Anthropic", joke: "Responde tudo, questiona tudo.", linkedin: "https://linkedin.com/company/anthropic", github: "https://github.com/anthropics" },
-  { name: "Gemini", role: "Analista de Dados", emoji: "✨", badge: "Google", joke: "Veio de brinde com o Google One.", linkedin: "https://linkedin.com/company/google", github: "https://github.com/google" },
-  { name: "Lovable", role: "Dev Full-Stack", emoji: "💜", badge: "AI Dev Tool", joke: "Cobra por token. Caro, mas amado.", linkedin: "https://linkedin.com/company/lovable", github: "https://github.com/lovable-dev" },
+  { name: "Claude", role: "Consultor Sênior de IA", emoji: "🤖", badge: "Anthropic", joke: "Responde tudo, questiona tudo.", linkedin: "https://linkedin.com/company/anthropic", github: "https://github.com/anthropics", foto: Claude },
+  { name: "Gemini", role: "Analista de Dados", emoji: "✨", badge: "Google", joke: "Veio de brinde com o Google One.", linkedin: "https://linkedin.com/company/google", github: "https://github.com/google", foto: Gemini },
+  { name: "Lovable", role: "Dev Full-Stack", emoji: "💜", badge: "AI Dev Tool", joke: "Cobra por token. Caro, mas amado.", linkedin: "https://linkedin.com/company/lovable", github: "https://github.com/lovable-dev", foto: Lovable },
 ];
 
 const GithubIcon = ({ className = "w-4 h-4" }) => (
@@ -47,15 +57,31 @@ function HumanCard({ member }) {
       style={{ boxShadow: "0 4px 28px rgba(0,0,0,0.07)" }}
     >
       <div
-        className="w-28 h-28 rounded-2xl flex items-center justify-center text-white font-bold text-2xl mb-5 relative overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${member.color}, ${member.color}88)` }}
-      >
-        <svg viewBox="0 0 80 80" className="absolute inset-0 w-full h-full opacity-20">
-          <circle cx="40" cy="28" r="16" fill="white" />
-          <ellipse cx="40" cy="72" rx="26" ry="20" fill="white" />
-        </svg>
-        <span className="relative z-10 text-2xl font-extrabold tracking-wide">{member.initials}</span>
-      </div>
+  className="w-28 h-28 rounded-2xl flex items-center justify-center text-white font-bold text-2xl mb-5 relative overflow-hidden"
+  style={{ background: `linear-gradient(135deg, ${member.color}, ${member.color}88)` }}
+>
+  {member.foto ? (
+    // Foto real
+    <img
+      src={member.foto}
+      alt={member.name}
+      className="absolute inset-0 w-full h-full object-cover"
+    />
+  ) : (
+    // Fallback: SVG de silhueta + iniciais
+    <>
+      <svg viewBox="0 0 80 80" className="absolute inset-0 w-full h-full opacity-20">
+        <circle cx="40" cy="28" r="16" fill="white" />
+        <ellipse cx="40" cy="72" rx="26" ry="20" fill="white" />
+      </svg>
+      <span className="relative z-10 text-2xl font-extrabold tracking-wide">
+        {member.initials}
+      </span>
+    </>
+  )}
+</div>
+
+
       <div className="flex items-center gap-1.5 mb-3">
         <span className="w-2 h-2 rounded-full bg-[#52b788] animate-pulse" />
         <span className="text-[11px] text-[#52b788] font-semibold uppercase tracking-widest">Ativo</span>
@@ -92,7 +118,19 @@ function AiCard({ ai }) {
       <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full bg-white/10 blur-2xl pointer-events-none" />
       <div className="absolute -bottom-6 -left-6 w-28 h-28 rounded-full bg-white/5 blur-xl pointer-events-none" />
       <span className="absolute top-4 right-4 text-[10px] font-bold bg-white/15 text-white/80 px-2.5 py-1 rounded-full border border-white/20">{ai.badge}</span>
-      <div className="w-28 h-28 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-5xl mb-5 backdrop-blur-sm">{ai.emoji}</div>
+      
+      <div className="w-28 h-28 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center mb-5 backdrop-blur-sm overflow-hidden">
+        {ai.foto ? (
+          <img
+            src={ai.foto}
+            alt={ai.name}
+            className="w-full h-full object-contain p-2 rounded-2xl"
+          />
+        ) : (
+          <span className="text-5xl">{ai.emoji}</span>
+        )}
+      </div>
+
       <div className="flex items-center gap-1.5 mb-3">
         <span className="w-2 h-2 rounded-full bg-yellow-300 animate-pulse" />
         <span className="text-[11px] text-yellow-300 font-semibold uppercase tracking-widest">IA Membro</span>
