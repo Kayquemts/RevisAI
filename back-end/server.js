@@ -513,4 +513,60 @@ if (require.main === module) {
   });
 }
 
+// ── LOGIN e LOGOUT ────────────────────────────────────────────────────────────────
+app.post('/api/auth/login', async (req, res)=> {
+
+  const {idToken} = req.body;
+
+  if (!idToken) {
+    return res.status(400).json({ error: 'Token não fornecido' });
+  }
+
+  try {
+
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+
+    const uid = decodedToken.uid;
+    const email = decodedToken.email;
+    const name = decodedToken.name;
+
+    return res.status(200).json({
+      message: 'Login bem-sucedido',
+      uid,
+      email,
+      name
+    });
+   
+  } catch (error) {
+    console.error('Erro ao verificar token:', error);
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+
 module.exports = app;
+
+});
+
+
+app.post('/api/auth/logout', async (req, res) => {
+
+
+  const uid = req.body;
+
+  if (!uid) {
+    return res.status(400).json({ error: 'UID não fornecido' });
+  }
+
+  try {
+    await admin.auth().revokeRefreshTokens(uid);
+    return res.status(200).json({ message: 'Logout bem-sucedido' });
+  
+  }
+  
+  catch (error) {
+    console.error('Erro no logout:', error);
+    return res.status(500).json({ error: 'Falha ao realizar logout' });
+  
+  }
+
+});
