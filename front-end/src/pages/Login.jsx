@@ -128,7 +128,7 @@ export default function Login() {
       yoyo: true,
       repeat: 1,
       onComplete: () => {
-        navigate("/dashboard");
+        navigate("/weeks");
       }
     });
   };
