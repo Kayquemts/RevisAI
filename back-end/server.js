@@ -43,7 +43,7 @@ const upload = multer({
       'image/jpeg',
       'image/jpg'
     ];
-    
+
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -100,6 +100,27 @@ app.post('/api/upload-document', (req, res) => {
   });
 });
 
+async function getSavedThemes() {
+  try {
+    // Busca todos os flashcards
+    const snapshot = await db.collection('flashcards').get();
+    const themesSet = new Set();
+
+    // Extrai apenas os nomes dos temas únicos
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.tema) {
+        themesSet.add(data.tema);
+      }
+    });
+
+    return Array.from(themesSet); // Retorna um array de strings, ex: ["Biologia", "Matemática"]
+  } catch (error) {
+    console.error("Erro ao buscar temas salvos:", error);
+    return [];
+  }
+}
+
 app.post('/api/generate-flashcards', async (req, res) => {
   const { content, file_base64, file_type, file_name, mode, history } = req.body;
 
@@ -127,7 +148,7 @@ app.post('/api/generate-flashcards', async (req, res) => {
       return res.status(400).json({ error: 'Não foi possível ler o PDF enviado.' });
     }
   }
-
+  const savedThemes = await getSavedThemes();
   const client = new LambdaClient({
     region: "us-east-2",
     credentials: {
@@ -139,10 +160,17 @@ app.post('/api/generate-flashcards', async (req, res) => {
   const payload = JSON.stringify({
     httpMethod: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, file_base64, file_type, file_name, mode, history }),
+    body: JSON.stringify({
+      content,
+      file_base64,
+      file_type,
+      file_name,
+      mode,
+      history,
+      savedThemes // <--- Seus temas vão aqui!
+    }),
     isBase64Encoded: false,
   });
-
   const command = new InvokeCommand({
     FunctionName: "flashcard-api",
     Payload: Buffer.from(payload),
@@ -243,7 +271,7 @@ app.post('/api/upload-document', (req, res) => {
     const payload = JSON.stringify({
       httpMethod: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         file: fileBase64,
         fileName: req.file.originalname,
         mimeType: req.file.mimetype
@@ -514,9 +542,9 @@ if (require.main === module) {
 }
 
 // ── LOGIN e LOGOUT ────────────────────────────────────────────────────────────────
-app.post('/api/auth/login', async (req, res)=> {
+app.post('/api/auth/login', async (req, res) => {
 
-  const {idToken} = req.body;
+  const { idToken } = req.body;
 
   if (!idToken) {
     return res.status(400).json({ error: 'Token não fornecido' });
@@ -536,14 +564,14 @@ app.post('/api/auth/login', async (req, res)=> {
       email,
       name
     });
-   
+
   } catch (error) {
     console.error('Erro ao verificar token:', error);
     return res.status(401).json({ error: 'Token inválido' });
   }
 
 
-module.exports = app;
+  module.exports = app;
 
 });
 
@@ -560,13 +588,13 @@ app.post('/api/auth/logout', async (req, res) => {
   try {
     await admin.auth().revokeRefreshTokens(uid);
     return res.status(200).json({ message: 'Logout bem-sucedido' });
-  
+
   }
-  
+
   catch (error) {
     console.error('Erro no logout:', error);
     return res.status(500).json({ error: 'Falha ao realizar logout' });
-  
+
   }
 
 });
