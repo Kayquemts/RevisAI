@@ -29,14 +29,14 @@ const MODES = [
   { id: "auto", label: "Automático", icon: <Sparkles className="w-4 h-4" /> },
   { id: "flashcards", label: "Flashcards", icon: <Zap className="w-4 h-4" /> },
   { id: "summary", label: "Resumo", icon: <FileText className="w-4 h-4" /> },
-  { id: "glossary", label: "Glossário", icon: <BookOpen className="w-4 h-4" /> },
+  { id: "dicionario", label: "Dicionário", icon: <BookOpen className="w-4 h-4" /> },
 ];
 
 const WELCOME_MESSAGES = {
   auto: "Olá! 👋 Sou o RevisAI. Envie um tema, texto ou PDF e eu escolho o melhor artefato de estudo para você!",
   flashcards: "Modo Flashcards ativado! 📇 Envie o conteúdo e vou gerar cartões de pergunta e resposta.",
   summary: "Modo Resumo ativado! 📝 Envie o conteúdo e vou gerar um resumo estruturado.",
-  glossary: "Modo Glossário ativado! 📚 Envie o conteúdo e vou identificar e definir os termos-chave.",
+  dicionario: "Modo Dicionário ativado! 📚 Envie o conteúdo e vou identificar e definir os termos-chave.",
 };
 
 const makeInitialMessage = (mode) => ({
@@ -223,7 +223,7 @@ export default function GerarFlashcards() {
     const parsedHtml = marked.parse(String(artifact));
     const type =
       (artifact_type === "summary" || artifact_type === "resumo") ? "resumo" :
-        (artifact_type === "glossary" || artifact_type === "dicionario" || artifact_type === "dictionary") ? "glossario" :
+        artifact_type === "dicionario" ? "dicionario" :
           null;
 
     if (!type) {
@@ -457,8 +457,8 @@ return (
               </div>
             )}
 
-            {/* Glossário */}
-            {msg.type === "glossario" && (
+            {/* Dicionário */}
+            {msg.type === "dicionario" && (
               <div className="mt-3 ml-2 animate-fade-in">
                 <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-0 overflow-hidden">
                   <div
