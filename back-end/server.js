@@ -199,6 +199,7 @@ app.post('/api/generate-flashcards', async (req, res) => {
       res.status(result.statusCode || 200).json({
         artifact: cards,
         artifact_type: parsedBody.artifact_type,
+        tema: parsedBody.tema,
         mode: parsedBody.mode,
         router_decision: parsedBody.router_decision
       });
@@ -206,6 +207,7 @@ app.post('/api/generate-flashcards', async (req, res) => {
       res.status(result.statusCode || 200).json({
         artifact: parsedBody.artifact,
         artifact_type: parsedBody.artifact_type,
+        tema: parsedBody.tema,
         mode: parsedBody.mode,
         router_decision: parsedBody.router_decision
       });

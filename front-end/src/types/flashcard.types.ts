@@ -33,6 +33,7 @@ export interface GenerateFlashcardsPayload {
 export interface GenerateFlashcardsResponse {
   artifact: Flashcard[] | string;
   artifact_type: string;
+  tema?: string;
   mode: string;
   model?: string;
   router_decision?: string;
