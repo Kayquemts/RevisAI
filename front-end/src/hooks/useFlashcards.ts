@@ -6,6 +6,7 @@ import type { Flashcard, RequestStatus, ChatMessage } from "../types/flashcard.t
 interface UseFlashcardsReturn {
   artifact: Flashcard[] | string | null;
   artifact_type: string | null;
+  tema: string | null;
   router_decision: string | null;
   status: RequestStatus;
   errorMessage: string | null;
@@ -45,6 +46,7 @@ function parseFlashcards(markdown: string | null | undefined): Flashcard[] {
 export function useFlashcards(): UseFlashcardsReturn {
   const [artifact, setArtifact] = useState<Flashcard[] | string | null>(null);
   const [artifact_type, setArtifactType] = useState<string | null>(null);
+  const [tema, setTema] = useState<string | null>(null);
   const [router_decision, setRouterDecision] = useState<string | null>(null);
   const [status, setStatus] = useState<RequestStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -60,6 +62,7 @@ export function useFlashcards(): UseFlashcardsReturn {
     setErrorMessage(null);
     setArtifact(null);
     setArtifactType(null);
+    setTema(null);
     setRouterDecision(null);
 
     try {
@@ -94,6 +97,7 @@ export function useFlashcards(): UseFlashcardsReturn {
       }
 
       setArtifactType(data.artifact_type);
+      setTema(data.tema || null);
       setRouterDecision(data.router_decision || null);
       setStatus("success");
 
@@ -111,10 +115,11 @@ export function useFlashcards(): UseFlashcardsReturn {
   const reset = useCallback(() => {
     setArtifact(null);
     setArtifactType(null);
+    setTema(null);
     setRouterDecision(null);
     setStatus("idle");
     setErrorMessage(null);
   }, []);
 
-  return { artifact, artifact_type, router_decision, status, errorMessage, generate, reset };
+  return { artifact, artifact_type, tema, router_decision, status, errorMessage, generate, reset };
 }
