@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 
 back-end/.env
+back-end/firebase.js
+front-end/back-end/
