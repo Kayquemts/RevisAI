@@ -53,6 +53,21 @@ const upload = multer({
 });
 
 
+async function requireAuth(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token não fornecido' });
+  }
+  try {
+    const token = header.split('Bearer ')[1];
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.uid = decoded.uid;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+}
+
 function parseFlashcardsMarkdown(markdown) {
   const cards = [];
   const blocks = markdown.split('---').filter(block => block.trim());
@@ -221,9 +236,9 @@ app.post('/api/generate-flashcards', async (req, res) => {
   }
 });
 
-app.get('/api/flashcards', async (req, res) => {
+app.get('/api/flashcards', requireAuth, async (req, res) => {
   try {
-    const snapshot = await db.collection('flashcards').orderBy('createdAt', 'asc').get();
+    const snapshot = await db.collection('users').doc(req.uid).collection('flashcards').orderBy('createdAt', 'asc').get();
     const cards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.status(200).json(cards);
   } catch (error) {
@@ -322,7 +337,7 @@ app.post('/api/upload-document', (req, res) => {
  * SAVE /api/flashcards
  * Salva um novo flashcard no banco de dados do firebase.
  */
-app.post('/api/flashcards', async (req, res) => {
+app.post('/api/flashcards', requireAuth, async (req, res) => {
   const { question, answer, themeName } = req.body;
 
   if (!question || !answer) {
@@ -339,7 +354,7 @@ app.post('/api/flashcards', async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await db.collection('flashcards').add(newFlashcard);
+    const docRef = await db.collection('users').doc(req.uid).collection('flashcards').add(newFlashcard);
 
     return res.status(201).json({
       message: 'Flashcard salvo com sucesso.',
@@ -355,7 +370,7 @@ app.post('/api/flashcards', async (req, res) => {
   }
 });
 
-app.put('/api/flashcards/:id', async (req, res) => {
+app.put('/api/flashcards/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { question, answer, themeName } = req.body;
 
@@ -366,7 +381,7 @@ app.put('/api/flashcards/:id', async (req, res) => {
   }
 
   try {
-    const flashcardRef = db.collection('flashcards').doc(id);
+    const flashcardRef = db.collection('users').doc(req.uid).collection('flashcards').doc(id);
     const doc = await flashcardRef.get();
     if (!doc.exists) {
       return res.status(404).json({ error: 'Flashcard não encontrado.' });
@@ -394,11 +409,11 @@ app.put('/api/flashcards/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/flashcards/:id', async (req, res) => {
+app.delete('/api/flashcards/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const flashcardRef = db.collection('flashcards').doc(id);
+    const flashcardRef = db.collection('users').doc(req.uid).collection('flashcards').doc(id);
     const doc = await flashcardRef.get();
     if (!doc.exists) {
       return res.status(404).json({ error: 'Flashcard não encontrado para exclusão.' });
@@ -421,9 +436,9 @@ app.delete('/api/flashcards/:id', async (req, res) => {
 
 // ── RESUMOS ────────────────────────────────────────────────────────────────
 
-app.get('/api/resumos', async (req, res) => {
+app.get('/api/resumos', requireAuth, async (req, res) => {
   try {
-    const snapshot = await db.collection('resumos').orderBy('createdAt', 'asc').get();
+    const snapshot = await db.collection('users').doc(req.uid).collection('resumos').orderBy('createdAt', 'asc').get();
     const resumos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.status(200).json(resumos);
   } catch (error) {
@@ -432,14 +447,14 @@ app.get('/api/resumos', async (req, res) => {
   }
 });
 
-app.post('/api/resumos', async (req, res) => {
+app.post('/api/resumos', requireAuth, async (req, res) => {
   const { topic, html } = req.body;
   if (!topic || !html) {
     return res.status(400).json({ error: 'Os campos "topic" e "html" são obrigatórios.' });
   }
   try {
     const newResumo = { topic, html, createdAt: new Date().toISOString() };
-    const docRef = await db.collection('resumos').add(newResumo);
+    const docRef = await db.collection('users').doc(req.uid).collection('resumos').add(newResumo);
     return res.status(201).json({ message: 'Resumo salvo com sucesso.', id: docRef.id, resumo: newResumo });
   } catch (error) {
     console.error('Erro ao salvar resumo:', error);
@@ -447,12 +462,12 @@ app.post('/api/resumos', async (req, res) => {
   }
 });
 
-app.put('/api/resumos/:id', async (req, res) => {
+app.put('/api/resumos/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { topic } = req.body;
   if (!topic) return res.status(400).json({ error: '"topic" é obrigatório.' });
   try {
-    const ref = db.collection('resumos').doc(id);
+    const ref = db.collection('users').doc(req.uid).collection('resumos').doc(id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Resumo não encontrado.' });
     const updateData = { topic, updatedAt: new Date().toISOString() };
@@ -464,10 +479,10 @@ app.put('/api/resumos/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/resumos/:id', async (req, res) => {
+app.delete('/api/resumos/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
-    const ref = db.collection('resumos').doc(id);
+    const ref = db.collection('users').doc(req.uid).collection('resumos').doc(id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Resumo não encontrado.' });
     await ref.delete();
@@ -480,9 +495,9 @@ app.delete('/api/resumos/:id', async (req, res) => {
 
 // ── DICIONÁRIOS ─────────────────────────────────────────────────────────────
 
-app.get('/api/dicionarios', async (req, res) => {
+app.get('/api/dicionarios', requireAuth, async (req, res) => {
   try {
-    const snapshot = await db.collection('dicionarios').orderBy('createdAt', 'asc').get();
+    const snapshot = await db.collection('users').doc(req.uid).collection('dicionarios').orderBy('createdAt', 'asc').get();
     const dicionarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.status(200).json(dicionarios);
   } catch (error) {
@@ -491,14 +506,14 @@ app.get('/api/dicionarios', async (req, res) => {
   }
 });
 
-app.post('/api/dicionarios', async (req, res) => {
+app.post('/api/dicionarios', requireAuth, async (req, res) => {
   const { topic, html, termsCount } = req.body;
   if (!topic || !html) {
     return res.status(400).json({ error: 'Os campos "topic" e "html" são obrigatórios.' });
   }
   try {
     const newDicionario = { topic, html, termsCount: termsCount || 0, createdAt: new Date().toISOString() };
-    const docRef = await db.collection('dicionarios').add(newDicionario);
+    const docRef = await db.collection('users').doc(req.uid).collection('dicionarios').add(newDicionario);
     return res.status(201).json({ message: 'Dicionário salvo com sucesso.', id: docRef.id, dicionario: newDicionario });
   } catch (error) {
     console.error('Erro ao salvar dicionário:', error);
@@ -506,12 +521,12 @@ app.post('/api/dicionarios', async (req, res) => {
   }
 });
 
-app.put('/api/dicionarios/:id', async (req, res) => {
+app.put('/api/dicionarios/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { topic } = req.body;
   if (!topic) return res.status(400).json({ error: '"topic" é obrigatório.' });
   try {
-    const ref = db.collection('dicionarios').doc(id);
+    const ref = db.collection('users').doc(req.uid).collection('dicionarios').doc(id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Dicionário não encontrado.' });
     const updateData = { topic, updatedAt: new Date().toISOString() };
@@ -523,10 +538,10 @@ app.put('/api/dicionarios/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/dicionarios/:id', async (req, res) => {
+app.delete('/api/dicionarios/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
-    const ref = db.collection('dicionarios').doc(id);
+    const ref = db.collection('users').doc(req.uid).collection('dicionarios').doc(id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Dicionário não encontrado.' });
     await ref.delete();

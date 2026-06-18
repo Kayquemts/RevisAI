@@ -1,4 +1,5 @@
 
+import { auth } from "../../firebase";
 import type {
   GenerateFlashcardsPayload,
   GenerateFlashcardsResponse,
@@ -8,6 +9,14 @@ import type {
 } from "../types/flashcard.types";
 
 const API_BASE_URL = "http://localhost:5000";
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const user = auth.currentUser;
+  const base: Record<string, string> = { "Content-Type": "application/json" };
+  if (!user) return base;
+  const token = await user.getIdToken();
+  return { ...base, Authorization: `Bearer ${token}` };
+}
 
 // Erros customizados para facilitar o tratamento por camada
 export class ApiError extends Error {
@@ -60,7 +69,9 @@ export async function generateFlashcards(
 export async function fetchFlashcards(): Promise<SavedFlashcard[]> {
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}/api/flashcards`);
+    response = await fetch(`${API_BASE_URL}/api/flashcards`, {
+      headers: await authHeaders(),
+    });
   } catch {
     throw new NetworkError();
   }
@@ -78,7 +89,7 @@ export async function saveFlashcard(
   try {
     response = await fetch(`${API_BASE_URL}/api/flashcards`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify(card),
     });
   } catch {
@@ -100,7 +111,7 @@ export async function updateFlashcard(
   try {
     response = await fetch(`${API_BASE_URL}/api/flashcards/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify(data),
     });
   } catch {
@@ -117,6 +128,7 @@ export async function deleteFlashcard(id: string): Promise<void> {
   try {
     response = await fetch(`${API_BASE_URL}/api/flashcards/${id}`, {
       method: "DELETE",
+      headers: await authHeaders(),
     });
   } catch {
     throw new NetworkError();
@@ -132,7 +144,9 @@ export async function deleteFlashcard(id: string): Promise<void> {
 export async function fetchResumos(): Promise<SavedResumo[]> {
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}/api/resumos`);
+    response = await fetch(`${API_BASE_URL}/api/resumos`, {
+      headers: await authHeaders(),
+    });
   } catch {
     throw new NetworkError();
   }
@@ -150,7 +164,7 @@ export async function saveResumo(
   try {
     response = await fetch(`${API_BASE_URL}/api/resumos`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify(resumo),
     });
   } catch {
@@ -172,7 +186,7 @@ export async function updateResumo(
   try {
     response = await fetch(`${API_BASE_URL}/api/resumos/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify(data),
     });
   } catch {
@@ -189,6 +203,7 @@ export async function deleteResumo(id: string): Promise<void> {
   try {
     response = await fetch(`${API_BASE_URL}/api/resumos/${id}`, {
       method: "DELETE",
+      headers: await authHeaders(),
     });
   } catch {
     throw new NetworkError();
@@ -204,7 +219,9 @@ export async function deleteResumo(id: string): Promise<void> {
 export async function fetchDicionarios(): Promise<SavedDicionario[]> {
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}/api/dicionarios`);
+    response = await fetch(`${API_BASE_URL}/api/dicionarios`, {
+      headers: await authHeaders(),
+    });
   } catch {
     throw new NetworkError();
   }
@@ -222,7 +239,7 @@ export async function saveDicionario(
   try {
     response = await fetch(`${API_BASE_URL}/api/dicionarios`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify(dicionario),
     });
   } catch {
@@ -244,7 +261,7 @@ export async function updateDicionario(
   try {
     response = await fetch(`${API_BASE_URL}/api/dicionarios/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify(data),
     });
   } catch {
@@ -261,6 +278,7 @@ export async function deleteDicionario(id: string): Promise<void> {
   try {
     response = await fetch(`${API_BASE_URL}/api/dicionarios/${id}`, {
       method: "DELETE",
+      headers: await authHeaders(),
     });
   } catch {
     throw new NetworkError();
