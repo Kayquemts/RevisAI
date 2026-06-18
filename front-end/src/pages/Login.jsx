@@ -1,15 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { useNavigate } from "react-router-dom";
-import robotIcon from "../assets/chatbot.png"
-
 import { LoginWithGoogle } from "../services/LoginWithGoogle";
+import { ShieldCheck, Zap, Lock } from "lucide-react";
 
 const floatingCards = [
-  { question: "Capital do Japão?", answer: "Tóquio", rotate: "-7deg", x: "-340px", y: "-60px", delay: 0 },
-  { question: "Quem escreveu Dom Quixote?", answer: "Miguel de Cervantes", rotate: "5deg", x: "330px", y: "-80px", delay: 0.2 },
-  { question: "Velocidade da luz?", answer: "299.792 km/s", rotate: "-5deg", x: "-310px", y: "140px", delay: 0.35 },
-  { question: "Fórmula da glicose?", answer: "C₆H₁₂O₆", rotate: "8deg", x: "300px", y: "160px", delay: 0.5 },
+  { question: "Capital do Japão?", answer: "Tóquio", rotate: "-7deg", x: "-340px", y: "-60px" },
+  { question: "Quem escreveu Dom Quixote?", answer: "Miguel de Cervantes", rotate: "5deg", x: "330px", y: "-80px" },
+  { question: "Velocidade da luz?", answer: "299.792 km/s", rotate: "-5deg", x: "-310px", y: "140px" },
+  { question: "Fórmula da glicose?", answer: "C₆H₁₂O₆", rotate: "8deg", x: "300px", y: "160px" },
 ];
 
 export default function Login() {
@@ -19,52 +18,29 @@ export default function Login() {
   const logoRef = useRef(null);
   const titleRef = useRef(null);
   const subtitleRef = useRef(null);
-  const field1Ref = useRef(null);
-  const field2Ref = useRef(null);
   const btnRef = useRef(null);
-  const footerRef = useRef(null);
+  const badgesRef = useRef(null);
   const cursorGlowRef = useRef(null);
 
   const navigate = useNavigate();
 
-  const [showPass, setShowPass] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-
-  const handleCreateAccount = async () => {
-    
+  const handleLogin = async () => {
     try {
       await LoginWithGoogle();
       navigate("/weeks");
-
     } catch (error) {
-      console.error("Erro ao criar conta:", error);
-    
+      console.error("Erro ao entrar:", error);
     }
-  
   };
-
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // ── Define estados iniciais explicitamente ──
       gsap.set(
-        [
-          logoRef.current,
-          formCardRef.current,
-          titleRef.current,
-          subtitleRef.current,
-          field1Ref.current,
-          field2Ref.current,
-          btnRef.current,
-          footerRef.current,
-        ].filter(Boolean),
+        [logoRef.current, formCardRef.current, titleRef.current, subtitleRef.current, btnRef.current, badgesRef.current].filter(Boolean),
         { opacity: 0, y: 20 }
       );
       gsap.set(cardRefs.current.filter(Boolean), { opacity: 0, scale: 0.5 });
 
-      // ── Cursor glow ──
       const onMove = (e) => {
         gsap.to(cursorGlowRef.current, {
           x: e.clientX - 250,
@@ -75,23 +51,17 @@ export default function Login() {
       };
       window.addEventListener("mousemove", onMove);
 
-      // ── Entrance timeline ──
       const tl = gsap.timeline({ defaults: { ease: "power4.out" } });
-
       tl.to(logoRef.current, { y: 0, opacity: 1, duration: 0.6 })
         .to(formCardRef.current, { y: 0, opacity: 1, scale: 1, duration: 0.9 }, "-=0.3")
         .to(titleRef.current, { y: 0, opacity: 1, duration: 0.6 }, "-=0.6")
         .to(subtitleRef.current, { y: 0, opacity: 1, duration: 0.5 }, "-=0.45")
-        .to([field1Ref.current, field2Ref.current], {
-          y: 0, opacity: 1, duration: 0.5, stagger: 0.12,
-        }, "-=0.4")
         .to(btnRef.current, { y: 0, opacity: 1, duration: 0.5 }, "-=0.3")
-        .to(footerRef.current, { y: 0, opacity: 1, duration: 0.4 }, "-=0.2")
+        .to(badgesRef.current, { y: 0, opacity: 1, duration: 0.45 }, "-=0.2")
         .to(cardRefs.current.filter(Boolean), {
           scale: 1, opacity: 1, duration: 0.8, stagger: 0.15, ease: "back.out(1.7)",
         }, 0.2);
 
-      // ── Float loop ──
       cardRefs.current.filter(Boolean).forEach((card, i) => {
         gsap.to(card, {
           y: `+=${12 + i * 3}`,
@@ -104,7 +74,6 @@ export default function Login() {
         });
       });
 
-      // ── Mouse parallax ──
       const onParallax = (e) => {
         const cx = window.innerWidth / 2;
         const cy = window.innerHeight / 2;
@@ -136,35 +105,6 @@ export default function Login() {
 
     return () => ctx.revert();
   }, []);
-
-  const handleSubmit = () => {
-    // Faz a animação de clique e navega instantaneamente após concluída
-    gsap.to(btnRef.current, {
-      scale: 0.96,
-      duration: 0.15,
-      yoyo: true,
-      repeat: 1,
-      onComplete: () => {
-        
-        LoginWithGoogle();
-        navigate("/weeks");
-      
-      }
-    });
-  };
-
-  // Input focus animation
-  const focusField = (e) => {
-    gsap.to(e.currentTarget, {
-      scale: 1.015,
-      duration: 0.25,
-      ease: "power2.out",
-    });
-  };
-
-  const blurField = (e) => {
-    gsap.to(e.currentTarget, { scale: 1, duration: 0.25, ease: "power2.out" });
-  };
 
   return (
     <div
@@ -214,117 +154,65 @@ export default function Login() {
 
       {/* Logo */}
       <div ref={logoRef} className="relative z-20 mb-8 flex items-center gap-2 text-gray-800 font-extrabold text-xl">
-        <img src={robotIcon} alt="Logo" className="w-8 h-8" /> REVISAI
+        REVISAI
       </div>
 
       {/* Form card */}
       <div
         ref={formCardRef}
-        className="relative z-20 w-full max-w-md bg-white rounded-3xl border border-gray-100 shadow-xl px-8 py-10"
+        className="relative z-20 w-full max-w-lg bg-white rounded-3xl border border-gray-100 shadow-xl px-16 py-20"
         style={{ perspective: "1000px", transformStyle: "preserve-3d" }}
       >
         {/* Green accent line */}
         <div className="absolute top-0 left-8 right-8 h-[3px] bg-gradient-to-r from-[#2d6a4f] via-[#52b788] to-[#2d6a4f] rounded-full" />
 
-        <div ref={titleRef} className="mb-1">
-          <h1 className="text-2xl font-extrabold text-gray-800">Bem-vindo de volta 👋</h1>
+        {/* Shield icon */}
+        <div className="flex justify-center mb-6">
+          <ShieldCheck className="w-14 h-14 text-[#2d6a4f]" strokeWidth={1.5} />
         </div>
-        <p ref={subtitleRef} className="text-sm text-gray-400 mb-8">
-          Continue de onde parou. Seu cérebro agradece.
+
+        <div ref={titleRef} className="mb-3 text-center">
+          <h1 className="text-4xl font-extrabold text-gray-800">Bem-vindo!</h1>
+        </div>
+        <p ref={subtitleRef} className="text-base text-gray-400 mb-10 text-center">
+          Entre com sua conta Google para continuar.
         </p>
 
-        {/* Email */}
-        <div ref={field1Ref} className="mb-4">
-          <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-            E-mail
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onFocus={focusField}
-            onBlur={blurField}
-            placeholder="seu@email.com"
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-[#fafaf8] text-gray-800 text-sm placeholder-gray-300 outline-none focus:border-[#2d6a4f] focus:ring-2 focus:ring-[#2d6a4f]/20 transition-all"
-          />
-        </div>
-
-        {/* Password */}
-        <div ref={field2Ref} className="mb-6">
-          <div className="flex justify-between items-center mb-1.5">
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Senha
-            </label>
-          </div>
-          <div className="relative flex flex-col">
-            <input
-              type={showPass ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onFocus={focusField}
-              onBlur={blurField}
-              placeholder="••••••••"
-              className="w-full px-3 py-3 rounded-xl border border-gray-200 bg-[#fafaf8] text-gray-800 text-sm placeholder-gray-300 outline-none focus:border-[#2d6a4f] focus:ring-2 focus:ring-[#2d6a4f]/20 transition-all pr-11"
-            />
-            <button
-              tabIndex={-1}
-              onClick={() => setShowPass((v) => !v)}
-              className="absolute right-3.5 top-3 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              {showPass ? (
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </svg>
-              ) : (
-                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              )}
-            </button>
-            <button className="text-xs text-[#2d6a4f] hover:underline font-medium self-end mt-2">
-              Esqueci a senha
-            </button>
-          </div>
-        </div>
-
-        {/* MUDANDO A CHAMADA DA FUNÇÃO DE LOGIN PARA ESTAR AQUI */}
-
-        {/* Submit */}
+        {/* Google button */}
         <button
           ref={btnRef}
-          onClick={handleSubmit}
-          className="w-full py-3.5 mt-2 rounded-xl bg-[#2d6a4f] text-white font-bold text-sm tracking-wide hover:bg-[#1b4332] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-md"
+          onClick={handleLogin}
+          className="w-full py-5 rounded-xl bg-white border border-gray-200 text-gray-700 font-semibold text-lg hover:bg-gray-50 hover:border-gray-300 active:scale-95 transition-all flex items-center justify-center gap-3 shadow-sm"
         >
-          Entrar na conta <span>→</span>
+          <svg width="24" height="24" viewBox="0 0 18 18" aria-hidden="true">
+            <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
+            <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" />
+            <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" />
+            <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" />
+          </svg>
+          Entrar com Google
         </button>
 
-        {/* MUDANDO A CHAMADA DA FUNÇÃO DE LOGIN PARA ESTAR AQUI */}
-
-        {/* Divider */}
-        <div className="flex items-center gap-3 my-6">
-          <div className="flex-1 h-px bg-gray-100" />
-          <span className="text-xs text-gray-300 font-medium">ou continue com</span>
-          <div className="flex-1 h-px bg-gray-100" />
+        {/* Divider + trust badges */}
+        <div ref={badgesRef}>
+          <div className="flex items-center gap-3 mt-8 mb-5">
+            <div className="flex-1 h-px bg-gray-100" />
+            <span className="text-[11px] text-gray-300 tracking-wide">acesso seguro</span>
+            <div className="flex-1 h-px bg-gray-100" />
+          </div>
+          <div className="flex items-center justify-center gap-8">
+            <div className="flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-[#52b788]" />
+              <span className="text-xs text-gray-400">Seguro</span>
+            </div>
+            <div className="w-px h-3 bg-gray-200" />
+            <div className="flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-[#52b788]" />
+              <span className="text-xs text-gray-400">Rápido</span>
+            </div>
+          </div>
         </div>
-
-        {/* Footer */}
-        <p ref={footerRef} className="text-center text-xs text-gray-400 mt-7">
-          Não tem conta?{" "}
-          <button            
-            type="button"
-            className="text-[#2d6a4f] font-semibold hover:underline"
-            onClick={handleCreateAccount}
-          >
-            Criar conta gratis
-          </button>
-
-        </p>
-
       </div>
-
 
       {/* Bottom copy */}
       <p className="relative z-20 mt-6 text-xs text-[#2d6a4f]">
