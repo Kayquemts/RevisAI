@@ -3,6 +3,8 @@ import { gsap } from "gsap";
 import { useNavigate } from "react-router-dom";
 import robotIcon from "../assets/chatbot.png"
 
+import { LoginWithGoogle } from "../services/LoginWithGoogle";
+
 const floatingCards = [
   { question: "Capital do Japão?", answer: "Tóquio", rotate: "-7deg", x: "-340px", y: "-60px", delay: 0 },
   { question: "Quem escreveu Dom Quixote?", answer: "Miguel de Cervantes", rotate: "5deg", x: "330px", y: "-80px", delay: 0.2 },
@@ -28,6 +30,21 @@ export default function Login() {
   const [showPass, setShowPass] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+
+  const handleCreateAccount = async () => {
+    
+    try {
+      await LoginWithGoogle();
+      navigate("/weeks");
+
+    } catch (error) {
+      console.error("Erro ao criar conta:", error);
+    
+    }
+  
+  };
+
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -128,7 +145,10 @@ export default function Login() {
       yoyo: true,
       repeat: 1,
       onComplete: () => {
+        
+        LoginWithGoogle();
         navigate("/weeks");
+      
       }
     });
   };
@@ -270,6 +290,8 @@ export default function Login() {
           </div>
         </div>
 
+        {/* MUDANDO A CHAMADA DA FUNÇÃO DE LOGIN PARA ESTAR AQUI */}
+
         {/* Submit */}
         <button
           ref={btnRef}
@@ -278,6 +300,8 @@ export default function Login() {
         >
           Entrar na conta <span>→</span>
         </button>
+
+        {/* MUDANDO A CHAMADA DA FUNÇÃO DE LOGIN PARA ESTAR AQUI */}
 
         {/* Divider */}
         <div className="flex items-center gap-3 my-6">
@@ -289,11 +313,18 @@ export default function Login() {
         {/* Footer */}
         <p ref={footerRef} className="text-center text-xs text-gray-400 mt-7">
           Não tem conta?{" "}
-          <a href="#" className="text-[#2d6a4f] font-semibold hover:underline">
-            Criar conta grátis
-          </a>
+          <button            
+            type="button"
+            className="text-[#2d6a4f] font-semibold hover:underline"
+            onClick={handleCreateAccount}
+          >
+            Criar conta gratis
+          </button>
+
         </p>
+
       </div>
+
 
       {/* Bottom copy */}
       <p className="relative z-20 mt-6 text-xs text-[#2d6a4f]">
