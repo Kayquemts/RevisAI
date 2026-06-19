@@ -7,6 +7,7 @@ import DeckDetail from "./pages/DeckDetail";
 import Weeks from "./pages/Weeks";
 import MeusResumos from "./pages/MeusResumos";
 import MeusDicionarios from "./pages/MeusDicionarios";
+import Perfil from "./pages/Perfil";
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
       <Route path="/meus-cards/:deckId" element={<DeckDetail />} />
       <Route path="/resumos" element={<MeusResumos />} />
       <Route path="/dicionarios" element={<MeusDicionarios />} />
+      <Route path="/perfil" element={<Perfil />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

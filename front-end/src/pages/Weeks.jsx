@@ -20,7 +20,7 @@ const ls = {
   set: (key, val) => localStorage.setItem(key, JSON.stringify(val)),
 };
 
-// ─── Helpers de exibição genérica de conteúdo (Resumo/Glossário) ─────────────
+// ─── Helpers de exibição genérica de conteúdo (Resumo/Dicionário) ─────────────
 const CONTENT_FIELDS = ["html", "content", "description", "definition", "text", "body", "summary", "resumo"];
 const HTML_FIELDS    = ["html"];
 const TITLE_FIELDS   = ["title", "topic", "term", "name", "titulo"];
@@ -39,7 +39,7 @@ function isHtmlContent(item) {
   return HTML_FIELDS.some((f) => item?.[f]);
 }
 
-// ─── Modal: visualizar conteúdo de Resumo/Glossário ──────────────────────────
+// ─── Modal: visualizar conteúdo de Resumo/Dicionário ──────────────────────────
 function ContentViewModal({ item, typeLabel, onClose }) {
   const modalRef = useRef(null);
 
@@ -62,7 +62,7 @@ function ContentViewModal({ item, typeLabel, onClose }) {
     };
   }, [onClose]);
 
-  // Glossário pode vir como array de termos { term, definition }
+  // Dicionário pode vir como array de termos { term, definition }
   const isTermList = Array.isArray(item?.terms) || Array.isArray(item?.items) || Array.isArray(item?.entries);
   const termList = item?.terms ?? item?.items ?? item?.entries ?? null;
 
@@ -122,7 +122,7 @@ function ContentViewModal({ item, typeLabel, onClose }) {
   );
 }
 
-// ─── Modal: vincular / visualizar Resumo e Glossário do dia da semana ────────
+// ─── Modal: vincular / visualizar Resumo e Dicionário do dia da semana ────────
 function DayLinksModal({ day, weekNumber, allResumos, allDicionarios, dayLinks, onToggle, onClose }) {
   const modalRef = useRef(null);
   const [tab, setTab] = useState("resumos"); // "resumos" | "glossarios"
@@ -258,7 +258,7 @@ function DayLinksModal({ day, weekNumber, allResumos, allDicionarios, dayLinks, 
               }`}
             >
               <BookMarked className="h-4 w-4" />
-              Glossários
+              Dicionários
               {glossarioIds.length > 0 && (
                 <span className="ml-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
                   {glossarioIds.length}
@@ -272,7 +272,7 @@ function DayLinksModal({ day, weekNumber, allResumos, allDicionarios, dayLinks, 
             {tab === "resumos" &&
               renderList(allResumos, "resumos", resumoIds, 'Nenhum resumo disponível. Crie resumos em "Meus Resumos".', "Resumo")}
             {tab === "glossarios" &&
-              renderList(allDicionarios, "glossarios", glossarioIds, 'Nenhum glossário disponível. Crie glossários em "Meus Dicionários".', "Glossário")}
+              renderList(allDicionarios, "glossarios", glossarioIds, 'Nenhum dicionário disponível. Crie dicionários em "Meus Dicionários".', "Dicionário")}
           </div>
 
           {/* Footer */}
@@ -686,7 +686,7 @@ export default function Weeks() {
                     {linkedCount > 0 ? (
                       <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/5 text-primary px-2 py-0.5 text-[10px] font-semibold">
                         <FileText className="h-2.5 w-2.5" />
-                        {linkedCount} material{linkedCount !== 1 ? "is" : ""}
+                        {linkedCount} {linkedCount === 1 ? "material" : "materiais"}
                       </span>
                     ) : (
                       <span className="text-[10px] text-muted-foreground/60 group-hover:text-primary/60 transition-colors font-medium">
@@ -732,7 +732,7 @@ export default function Weeks() {
                   return acc + (dl.resumos?.length ?? 0) + (dl.glossarios?.length ?? 0);
                 }, 0)}
               </p>
-              <p className="text-xs text-muted-foreground">resumos e glossários esta semana</p>
+              <p className="text-xs text-muted-foreground">resumos e dicionários esta semana</p>
             </div>
             <div className="rounded-lg border text-card-foreground shadow-sm p-5 bg-accent/5 border-accent/20">
               <div className="flex items-center gap-3 mb-2">
@@ -748,7 +748,7 @@ export default function Weeks() {
         </div>
       </div>
 
-      {/* ── Modal: dia da semana (resumo/glossário) ── */}
+      {/* ── Modal: dia da semana (resumo/dicionário) ── */}
       {openWeekDay && (
         <DayLinksModal
           day={openWeekDay}

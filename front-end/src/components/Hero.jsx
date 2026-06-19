@@ -18,7 +18,6 @@ export default function Hero() {
   const titleLine1Ref = useRef(null);
   const titleLine2Ref = useRef(null);
   const subtitleRef = useRef(null);
-  const buttonsRef = useRef(null);
   const cardsContainerRef = useRef(null);
   const cardRefs = useRef([]);
   const bgDotsRef = useRef(null);
@@ -62,12 +61,6 @@ export default function Hero() {
           subtitleRef.current,
           { y: 30, opacity: 0, duration: 0.7 },
           "-=0.5"
-        )
-        // Buttons
-        .from(
-          buttonsRef.current.children,
-          { y: 20, opacity: 0, duration: 0.6, stagger: 0.15 },
-          "-=0.4"
         )
         // Cards stagger in
         .from(
@@ -131,18 +124,6 @@ export default function Hero() {
 
     return () => ctx.revert();
   }, []);
-
-  // Magnetic button effect
-  const handleMagnet = (e) => {
-    const btn = e.currentTarget;
-    const rect = btn.getBoundingClientRect();
-    const x = e.clientX - rect.left - rect.width / 2;
-    const y = e.clientY - rect.top - rect.height / 2;
-    gsap.to(btn, { x: x * 0.35, y: y * 0.35, duration: 0.4, ease: "power2.out" });
-  };
-  const handleMagnetLeave = (e) => {
-    gsap.to(e.currentTarget, { x: 0, y: 0, duration: 0.6, ease: "elastic.out(1, 0.4)" });
-  };
 
   return (
     <section
@@ -226,15 +207,6 @@ export default function Hero() {
           ciclo de revisão semanal para fixar o conteúdo de verdade.
         </p>
 
-        <div ref={buttonsRef} className="flex flex-col sm:flex-row items-center gap-4">
-          <button
-            onMouseMove={handleMagnet}
-            onMouseLeave={handleMagnetLeave}
-            className="bg-[#2d6a4f] text-white px-8 py-3.5 rounded-xl font-semibold text-base shadow-lg hover:bg-[#1b4332] transition-colors flex items-center gap-2"
-          >
-            Criar conta grátis →
-          </button>
-        </div>
       </div>
     </section>
   );
