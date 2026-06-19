@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../firebase"; // <-- CONFIRME SE ESTE CAMINHO ESTÁ CORRETO
 import {
   fetchFlashcards,
   saveFlashcard,
@@ -59,39 +61,60 @@ export const FlashcardProvider = ({ children }) => {
     { weekId: 4, flashcardIds: [] },
   ]);
 
+  // --- O useEffect ATUALIZADO AQUI ---
   useEffect(() => {
-    fetchFlashcards()
-      .then((cards) => setThemes(groupCardsIntoThemes(cards)))
-      .catch((err) => console.error("Erro ao carregar flashcards:", err))
-      .finally(() => setCardsLoading(false));
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setCardsLoading(true);
+        try {
+          // Faz todas as requisições em paralelo
+          const [cardsData, resumosData, dicionariosData] = await Promise.all([
+            fetchFlashcards(),
+            fetchResumos(),
+            fetchDicionarios(),
+          ]);
 
-    fetchResumos()
-      .then((items) =>
-        setResumos(
-          items.map((r) => ({
-            id: r.id,
-            topic: r.topic,
-            html: r.html,
-            date: new Date(r.createdAt).toLocaleDateString("pt-BR"),
-          }))
-        )
-      )
-      .catch((err) => console.error("Erro ao carregar resumos:", err));
+          // Processa e salva no estado os Flashcards
+          setThemes(groupCardsIntoThemes(cardsData));
 
-    fetchDicionarios()
-      .then((items) =>
-        setDicionarios(
-          items.map((d) => ({
-            id: d.id,
-            topic: d.topic,
-            html: d.html,
-            termsCount: d.termsCount,
-            date: new Date(d.createdAt).toLocaleDateString("pt-BR"),
-          }))
-        )
-      )
-      .catch((err) => console.error("Erro ao carregar dicionários:", err));
+          // Processa e salva no estado os Resumos
+          setResumos(
+            resumosData.map((r) => ({
+              id: r.id,
+              topic: r.topic,
+              html: r.html,
+              date: new Date(r.createdAt).toLocaleDateString("pt-BR"),
+            }))
+          );
+
+          // Processa e salva no estado os Dicionários
+          setDicionarios(
+            dicionariosData.map((d) => ({
+              id: d.id,
+              topic: d.topic,
+              html: d.html,
+              termsCount: d.termsCount,
+              date: new Date(d.createdAt).toLocaleDateString("pt-BR"),
+            }))
+          );
+        } catch (err) {
+          console.error("Erro ao carregar dados do servidor:", err);
+        } finally {
+          setCardsLoading(false);
+        }
+      } else {
+        // Se o usuário deslogar, limpa os dados
+        setThemes([]);
+        setResumos([]);
+        setDicionarios([]);
+        setCardsLoading(false);
+      }
+    });
+
+    // Limpa o listener ao desmontar o componente
+    return () => unsubscribe();
   }, []);
+  // ------------------------------------
 
   const recordAnswer = (cardId, correct) => {
     setCardStats((prev) => {
