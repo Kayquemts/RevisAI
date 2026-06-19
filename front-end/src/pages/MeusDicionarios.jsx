@@ -66,7 +66,7 @@ export default function MeusDicionarios() {
       <main className="flex-1 overflow-auto p-6">
         <div className="max-w-5xl mx-auto animate-fade-in">
           <h2 className="text-2xl font-bold mb-1">Meus Dicionários</h2>
-          <p className="text-muted-foreground mb-6">Glossários gerados pelo RevisAI</p>
+          <p className="text-muted-foreground mb-6">Dicionários gerados pelo RevisAI</p>
 
           {dicionarios.length === 0 ? (
             <div className="text-center py-10">

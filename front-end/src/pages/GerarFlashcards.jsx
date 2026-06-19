@@ -290,9 +290,9 @@ const handleSaveDicionario = async (topic, html, termsCount) => {
   setSavingDicionario(topic);
   try {
     await addDicionario(topic, html, termsCount);
-    showSuccess("Glossário salvo com sucesso");
+    showSuccess("Dicionário salvo com sucesso");
   } catch (err) {
-    console.error("Erro ao salvar glossário:", err);
+    console.error("Erro ao salvar dicionário:", err);
   } finally {
     setSavingDicionario(null);
   }
