@@ -43,7 +43,7 @@ const upload = multer({
       'image/jpeg',
       'image/jpg'
     ];
-    
+
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -52,6 +52,21 @@ const upload = multer({
   }
 });
 
+
+async function requireAuth(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token não fornecido' });
+  }
+  try {
+    const token = header.split('Bearer ')[1];
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.uid = decoded.uid;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+}
 
 function parseFlashcardsMarkdown(markdown) {
   const cards = [];
@@ -100,6 +115,27 @@ app.post('/api/upload-document', (req, res) => {
   });
 });
 
+async function getSavedThemes() {
+  try {
+    // Busca todos os flashcards
+    const snapshot = await db.collection('flashcards').get();
+    const themesSet = new Set();
+
+    // Extrai apenas os nomes dos temas únicos
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.tema) {
+        themesSet.add(data.tema);
+      }
+    });
+
+    return Array.from(themesSet); // Retorna um array de strings, ex: ["Biologia", "Matemática"]
+  } catch (error) {
+    console.error("Erro ao buscar temas salvos:", error);
+    return [];
+  }
+}
+
 app.post('/api/generate-flashcards', async (req, res) => {
   const { content, file_base64, file_type, file_name, mode, history } = req.body;
 
@@ -127,7 +163,7 @@ app.post('/api/generate-flashcards', async (req, res) => {
       return res.status(400).json({ error: 'Não foi possível ler o PDF enviado.' });
     }
   }
-
+  const savedThemes = await getSavedThemes();
   const client = new LambdaClient({
     region: "us-east-2",
     credentials: {
@@ -139,10 +175,17 @@ app.post('/api/generate-flashcards', async (req, res) => {
   const payload = JSON.stringify({
     httpMethod: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, file_base64, file_type, file_name, mode, history }),
+    body: JSON.stringify({
+      content,
+      file_base64,
+      file_type,
+      file_name,
+      mode,
+      history,
+      savedThemes // <--- Seus temas vão aqui!
+    }),
     isBase64Encoded: false,
   });
-
   const command = new InvokeCommand({
     FunctionName: "flashcard-api",
     Payload: Buffer.from(payload),
@@ -171,6 +214,7 @@ app.post('/api/generate-flashcards', async (req, res) => {
       res.status(result.statusCode || 200).json({
         artifact: cards,
         artifact_type: parsedBody.artifact_type,
+        tema: parsedBody.tema,
         mode: parsedBody.mode,
         router_decision: parsedBody.router_decision
       });
@@ -178,6 +222,7 @@ app.post('/api/generate-flashcards', async (req, res) => {
       res.status(result.statusCode || 200).json({
         artifact: parsedBody.artifact,
         artifact_type: parsedBody.artifact_type,
+        tema: parsedBody.tema,
         mode: parsedBody.mode,
         router_decision: parsedBody.router_decision
       });
@@ -191,9 +236,9 @@ app.post('/api/generate-flashcards', async (req, res) => {
   }
 });
 
-app.get('/api/flashcards', async (req, res) => {
+app.get('/api/flashcards', requireAuth, async (req, res) => {
   try {
-    const snapshot = await db.collection('flashcards').orderBy('createdAt', 'asc').get();
+    const snapshot = await db.collection('users').doc(req.uid).collection('flashcards').orderBy('createdAt', 'asc').get();
     const cards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.status(200).json(cards);
   } catch (error) {
@@ -243,7 +288,7 @@ app.post('/api/upload-document', (req, res) => {
     const payload = JSON.stringify({
       httpMethod: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         file: fileBase64,
         fileName: req.file.originalname,
         mimeType: req.file.mimetype
@@ -292,7 +337,7 @@ app.post('/api/upload-document', (req, res) => {
  * SAVE /api/flashcards
  * Salva um novo flashcard no banco de dados do firebase.
  */
-app.post('/api/flashcards', async (req, res) => {
+app.post('/api/flashcards', requireAuth, async (req, res) => {
   const { question, answer, themeName } = req.body;
 
   if (!question || !answer) {
@@ -309,7 +354,7 @@ app.post('/api/flashcards', async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await db.collection('flashcards').add(newFlashcard);
+    const docRef = await db.collection('users').doc(req.uid).collection('flashcards').add(newFlashcard);
 
     return res.status(201).json({
       message: 'Flashcard salvo com sucesso.',
@@ -325,7 +370,7 @@ app.post('/api/flashcards', async (req, res) => {
   }
 });
 
-app.put('/api/flashcards/:id', async (req, res) => {
+app.put('/api/flashcards/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { question, answer, themeName } = req.body;
 
@@ -336,7 +381,7 @@ app.put('/api/flashcards/:id', async (req, res) => {
   }
 
   try {
-    const flashcardRef = db.collection('flashcards').doc(id);
+    const flashcardRef = db.collection('users').doc(req.uid).collection('flashcards').doc(id);
     const doc = await flashcardRef.get();
     if (!doc.exists) {
       return res.status(404).json({ error: 'Flashcard não encontrado.' });
@@ -364,11 +409,11 @@ app.put('/api/flashcards/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/flashcards/:id', async (req, res) => {
+app.delete('/api/flashcards/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const flashcardRef = db.collection('flashcards').doc(id);
+    const flashcardRef = db.collection('users').doc(req.uid).collection('flashcards').doc(id);
     const doc = await flashcardRef.get();
     if (!doc.exists) {
       return res.status(404).json({ error: 'Flashcard não encontrado para exclusão.' });
@@ -391,9 +436,9 @@ app.delete('/api/flashcards/:id', async (req, res) => {
 
 // ── RESUMOS ────────────────────────────────────────────────────────────────
 
-app.get('/api/resumos', async (req, res) => {
+app.get('/api/resumos', requireAuth, async (req, res) => {
   try {
-    const snapshot = await db.collection('resumos').orderBy('createdAt', 'asc').get();
+    const snapshot = await db.collection('users').doc(req.uid).collection('resumos').orderBy('createdAt', 'asc').get();
     const resumos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.status(200).json(resumos);
   } catch (error) {
@@ -402,14 +447,14 @@ app.get('/api/resumos', async (req, res) => {
   }
 });
 
-app.post('/api/resumos', async (req, res) => {
+app.post('/api/resumos', requireAuth, async (req, res) => {
   const { topic, html } = req.body;
   if (!topic || !html) {
     return res.status(400).json({ error: 'Os campos "topic" e "html" são obrigatórios.' });
   }
   try {
     const newResumo = { topic, html, createdAt: new Date().toISOString() };
-    const docRef = await db.collection('resumos').add(newResumo);
+    const docRef = await db.collection('users').doc(req.uid).collection('resumos').add(newResumo);
     return res.status(201).json({ message: 'Resumo salvo com sucesso.', id: docRef.id, resumo: newResumo });
   } catch (error) {
     console.error('Erro ao salvar resumo:', error);
@@ -417,12 +462,12 @@ app.post('/api/resumos', async (req, res) => {
   }
 });
 
-app.put('/api/resumos/:id', async (req, res) => {
+app.put('/api/resumos/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { topic } = req.body;
   if (!topic) return res.status(400).json({ error: '"topic" é obrigatório.' });
   try {
-    const ref = db.collection('resumos').doc(id);
+    const ref = db.collection('users').doc(req.uid).collection('resumos').doc(id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Resumo não encontrado.' });
     const updateData = { topic, updatedAt: new Date().toISOString() };
@@ -434,10 +479,10 @@ app.put('/api/resumos/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/resumos/:id', async (req, res) => {
+app.delete('/api/resumos/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
-    const ref = db.collection('resumos').doc(id);
+    const ref = db.collection('users').doc(req.uid).collection('resumos').doc(id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Resumo não encontrado.' });
     await ref.delete();
@@ -450,9 +495,9 @@ app.delete('/api/resumos/:id', async (req, res) => {
 
 // ── DICIONÁRIOS ─────────────────────────────────────────────────────────────
 
-app.get('/api/dicionarios', async (req, res) => {
+app.get('/api/dicionarios', requireAuth, async (req, res) => {
   try {
-    const snapshot = await db.collection('dicionarios').orderBy('createdAt', 'asc').get();
+    const snapshot = await db.collection('users').doc(req.uid).collection('dicionarios').orderBy('createdAt', 'asc').get();
     const dicionarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.status(200).json(dicionarios);
   } catch (error) {
@@ -461,14 +506,14 @@ app.get('/api/dicionarios', async (req, res) => {
   }
 });
 
-app.post('/api/dicionarios', async (req, res) => {
+app.post('/api/dicionarios', requireAuth, async (req, res) => {
   const { topic, html, termsCount } = req.body;
   if (!topic || !html) {
     return res.status(400).json({ error: 'Os campos "topic" e "html" são obrigatórios.' });
   }
   try {
     const newDicionario = { topic, html, termsCount: termsCount || 0, createdAt: new Date().toISOString() };
-    const docRef = await db.collection('dicionarios').add(newDicionario);
+    const docRef = await db.collection('users').doc(req.uid).collection('dicionarios').add(newDicionario);
     return res.status(201).json({ message: 'Dicionário salvo com sucesso.', id: docRef.id, dicionario: newDicionario });
   } catch (error) {
     console.error('Erro ao salvar dicionário:', error);
@@ -476,12 +521,12 @@ app.post('/api/dicionarios', async (req, res) => {
   }
 });
 
-app.put('/api/dicionarios/:id', async (req, res) => {
+app.put('/api/dicionarios/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { topic } = req.body;
   if (!topic) return res.status(400).json({ error: '"topic" é obrigatório.' });
   try {
-    const ref = db.collection('dicionarios').doc(id);
+    const ref = db.collection('users').doc(req.uid).collection('dicionarios').doc(id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Dicionário não encontrado.' });
     const updateData = { topic, updatedAt: new Date().toISOString() };
@@ -493,10 +538,10 @@ app.put('/api/dicionarios/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/dicionarios/:id', async (req, res) => {
+app.delete('/api/dicionarios/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
-    const ref = db.collection('dicionarios').doc(id);
+    const ref = db.collection('users').doc(req.uid).collection('dicionarios').doc(id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: 'Dicionário não encontrado.' });
     await ref.delete();
@@ -513,4 +558,60 @@ if (require.main === module) {
   });
 }
 
-module.exports = app;
+// ── LOGIN e LOGOUT ────────────────────────────────────────────────────────────────
+app.post('/api/auth/login', async (req, res) => {
+
+  const { idToken } = req.body;
+
+  if (!idToken) {
+    return res.status(400).json({ error: 'Token não fornecido' });
+  }
+
+  try {
+
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+
+    const uid = decodedToken.uid;
+    const email = decodedToken.email;
+    const name = decodedToken.name;
+
+    return res.status(200).json({
+      message: 'Login bem-sucedido',
+      uid,
+      email,
+      name
+    });
+
+  } catch (error) {
+    console.error('Erro ao verificar token:', error);
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+
+  module.exports = app;
+
+});
+
+
+app.post('/api/auth/logout', async (req, res) => {
+
+
+  const uid = req.body;
+
+  if (!uid) {
+    return res.status(400).json({ error: 'UID não fornecido' });
+  }
+
+  try {
+    await admin.auth().revokeRefreshTokens(uid);
+    return res.status(200).json({ message: 'Logout bem-sucedido' });
+
+  }
+
+  catch (error) {
+    console.error('Erro no logout:', error);
+    return res.status(500).json({ error: 'Falha ao realizar logout' });
+
+  }
+
+});

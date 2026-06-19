@@ -48,9 +48,9 @@ describe('MeusDicionarios', () => {
     expect(screen.getByText('Nenhum dicionário salvo ainda.')).toBeInTheDocument()
   })
 
-  it('"Ver glossário" opens view modal', async () => {
+  it('"Ver dicionário" opens view modal', async () => {
     renderMeusDicionarios()
-    fireEvent.click(screen.getAllByText('Ver glossário')[0])
+    fireEvent.click(screen.getAllByText('Ver dicionário')[0])
     await waitFor(() => {
       expect(screen.getAllByText('Biologia Celular').length).toBeGreaterThanOrEqual(2)
     })
@@ -58,7 +58,7 @@ describe('MeusDicionarios', () => {
 
   it('X button closes view modal', async () => {
     renderMeusDicionarios()
-    fireEvent.click(screen.getAllByText('Ver glossário')[0])
+    fireEvent.click(screen.getAllByText('Ver dicionário')[0])
     await waitFor(() => expect(screen.getAllByText('Biologia Celular').length).toBeGreaterThanOrEqual(2))
     fireEvent.click(screen.getByRole('button', { name: /fechar/i }))
     await waitFor(() => expect(screen.getAllByText('Biologia Celular')).toHaveLength(1))

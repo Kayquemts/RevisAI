@@ -62,7 +62,7 @@ export default function Sidebar() {
           className="flex justify-center mb-6 px-2 cursor-pointer"
           onClick={() => navigate("/")}
         >
-          <img src={robotIcon} alt="RevisAI Logo" className="rounded-full" style={{ width: 64, height: 64 }} />
+          <img src={robotIcon} alt="RevisAI Logo" style={{ width: 64, height: 64 }} />
         </div>
         <p className="text-center text-sm font-bold text-sidebar-foreground mb-6 tracking-wide">REVISAI</p>
 

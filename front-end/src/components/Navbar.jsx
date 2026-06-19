@@ -8,14 +8,11 @@ export default function Navbar() {
         <img src={robotIcon} alt="Logo" className="w-8 h-8" /> REVISAI
       </Link>
       <div className="flex items-center gap-4">
-        <Link to="/login" className="text-gray-700 hover:text-gray-900 font-medium">
-          Entrar
-        </Link>
         <Link
           to="/login"
           className="bg-[#2d6a4f] text-white px-5 py-2 rounded-lg font-medium hover:bg-[#1b4332] transition"
         >
-          Começar grátis
+          Entrar
         </Link>
       </div>
     </nav>
