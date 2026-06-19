@@ -160,7 +160,7 @@ app.post('/api/generate-flashcards', async (req, res) => {
         });
       }
     } catch (err) {
-      return res.status(400).json({ error: 'Não foi possível ler o PDF enviado.' });
+      console.warn('pdf-parse não conseguiu ler o PDF, repassando ao Lambda:', err.message);
     }
   }
   const savedThemes = await getSavedThemes();
